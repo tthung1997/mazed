@@ -1,0 +1,169 @@
+{
+  "name": "Cubeworld Assets",
+  "description": "Index of all available 3D assets in the Cubeworld asset pack",
+  "format": "glTF",
+  "basePath": "/assets/cubeworld",
+  "categories": {
+    "animals": {
+      "name": "Animals",
+      "path": "Animals/glTF",
+      "assets": [
+        { "id": "cat", "name": "Cat", "file": "Cat.gltf" },
+        { "id": "chick", "name": "Chick", "file": "Chick.gltf" },
+        { "id": "chicken", "name": "Chicken", "file": "Chicken.gltf" },
+        { "id": "dog", "name": "Dog", "file": "Dog.gltf" },
+        { "id": "horse", "name": "Horse", "file": "Horse.gltf" },
+        { "id": "pig", "name": "Pig", "file": "Pig.gltf" },
+        { "id": "raccoon", "name": "Raccoon", "file": "Raccoon.gltf" },
+        { "id": "sheep", "name": "Sheep", "file": "Sheep.gltf" },
+        { "id": "wolf", "name": "Wolf", "file": "Wolf.gltf" }
+      ]
+    },
+    "blocks": {
+      "name": "Blocks",
+      "path": "Blocks/glTF",
+      "assets": [
+        { "id": "block_blank", "name": "Blank Block", "file": "Block_Blank.gltf" },
+        { "id": "block_brick", "name": "Brick Block", "file": "Block_Brick.gltf" },
+        { "id": "block_cheese", "name": "Cheese Block", "file": "Block_Cheese.gltf" },
+        { "id": "block_coal", "name": "Coal Block", "file": "Block_Coal.gltf" },
+        { "id": "block_crate", "name": "Crate Block", "file": "Block_Crate.gltf" },
+        { "id": "block_crystal", "name": "Crystal Block", "file": "Block_Crystal.gltf" },
+        { "id": "block_diamond", "name": "Diamond Block", "file": "Block_Diamond.gltf" },
+        { "id": "block_dirt", "name": "Dirt Block", "file": "Block_Dirt.gltf" },
+        { "id": "block_grass", "name": "Grass Block", "file": "Block_Grass.gltf" },
+        { "id": "block_greybricks", "name": "Grey Bricks Block", "file": "Block_GreyBricks.gltf" },
+        { "id": "block_ice", "name": "Ice Block", "file": "Block_Ice.gltf" },
+        { "id": "block_metal", "name": "Metal Block", "file": "Block_Metal.gltf" },
+        { "id": "block_snow", "name": "Snow Block", "file": "Block_Snow.gltf" },
+        { "id": "block_stone", "name": "Stone Block", "file": "Block_Stone.gltf" },
+        { "id": "block_woodplanks", "name": "Wood Planks Block", "file": "Block_WoodPlanks.gltf" }
+      ]
+    },
+    "characters": {
+      "name": "Characters",
+      "path": "Characters/glTF",
+      "assets": [
+        { "id": "character_female_1", "name": "Female Character 1", "file": "Character_Female_1.gltf" },
+        { "id": "character_female_2", "name": "Female Character 2", "file": "Character_Female_2.gltf" },
+        { "id": "character_male_1", "name": "Male Character 1", "file": "Character_Male_1.gltf" },
+        { "id": "character_male_2", "name": "Male Character 2", "file": "Character_Male_2.gltf" }
+      ]
+    },
+    "enemies": {
+      "name": "Enemies",
+      "path": "Enemies/glTF",
+      "assets": [
+        { "id": "demon", "name": "Demon", "file": "Demon.gltf" },
+        { "id": "giant", "name": "Giant", "file": "Giant.gltf" },
+        { "id": "goblin", "name": "Goblin", "file": "Goblin.gltf" },
+        { "id": "hedgehog", "name": "Hedgehog", "file": "Hedgehog.gltf" },
+        { "id": "skeleton", "name": "Skeleton", "file": "Skeleton.gltf" },
+        { "id": "skeleton_armor", "name": "Armored Skeleton", "file": "Skeleton_Armor.gltf" },
+        { "id": "wizard", "name": "Wizard", "file": "Wizard.gltf" },
+        { "id": "yeti", "name": "Yeti", "file": "Yeti.gltf" },
+        { "id": "zombie", "name": "Zombie", "file": "Zombie.gltf" }
+      ]
+    },
+    "environment": {
+      "name": "Environment",
+      "path": "Environment/glTF",
+      "assets": [
+        { "id": "bamboo", "name": "Bamboo", "file": "Bamboo.gltf" },
+        { "id": "bamboo_mid", "name": "Bamboo (Medium)", "file": "Bamboo_Mid.gltf" },
+        { "id": "bamboo_small", "name": "Bamboo (Small)", "file": "Bamboo_Small.gltf" },
+        { "id": "bush", "name": "Bush", "file": "Bush.gltf" },
+        { "id": "button", "name": "Button", "file": "Button.gltf" },
+        { "id": "cart", "name": "Cart", "file": "Cart.gltf" },
+        { "id": "chest_closed", "name": "Chest (Closed)", "file": "Chest_Closed.gltf" },
+        { "id": "chest_open", "name": "Chest (Open)", "file": "Chest_Open.gltf" },
+        { "id": "crystal_big", "name": "Crystal (Big)", "file": "Crystal_Big.gltf" },
+        { "id": "crystal_small", "name": "Crystal (Small)", "file": "Crystal_Small.gltf" },
+        { "id": "deadtree_1", "name": "Dead Tree 1", "file": "DeadTree_1.gltf" },
+        { "id": "deadtree_2", "name": "Dead Tree 2", "file": "DeadTree_2.gltf" },
+        { "id": "deadtree_3", "name": "Dead Tree 3", "file": "DeadTree_3.gltf" },
+        { "id": "door_closed", "name": "Door (Closed)", "file": "Door_Closed.gltf" },
+        { "id": "fence_center", "name": "Fence (Center)", "file": "Fence_Center.gltf" },
+        { "id": "fence_corner", "name": "Fence (Corner)", "file": "Fence_Corner.gltf" },
+        { "id": "fence_end", "name": "Fence (End)", "file": "Fence_End.gltf" },
+        { "id": "fence_t", "name": "Fence (T-Junction)", "file": "Fence_T.gltf" },
+        { "id": "flowers_1", "name": "Flowers 1", "file": "Flowers_1.gltf" },
+        { "id": "flowers_2", "name": "Flowers 2", "file": "Flowers_2.gltf" },
+        { "id": "grass_big", "name": "Grass (Big)", "file": "Grass_Big.gltf" },
+        { "id": "grass_small", "name": "Grass (Small)", "file": "Grass_Small.gltf" },
+        { "id": "key", "name": "Key", "file": "Key.gltf" },
+        { "id": "lever_left", "name": "Lever (Left)", "file": "Lever_Left.gltf" },
+        { "id": "lever_right", "name": "Lever (Right)", "file": "Lever_Right.gltf" },
+        { "id": "mushroom", "name": "Mushroom", "file": "Mushroom.gltf" },
+        { "id": "plant_2", "name": "Plant 2", "file": "Plant_2.gltf" },
+        { "id": "plant_3", "name": "Plant 3", "file": "Plant_3.gltf" },
+        { "id": "rail_corner", "name": "Rail (Corner)", "file": "Rail_Corner.gltf" },
+        { "id": "rail_incline", "name": "Rail (Incline)", "file": "Rail_Incline.gltf" },
+        { "id": "rail_straight", "name": "Rail (Straight)", "file": "Rail_Straight.gltf" },
+        { "id": "rock1", "name": "Rock 1", "file": "Rock1.gltf" },
+        { "id": "rock2", "name": "Rock 2", "file": "Rock2.gltf" },
+        { "id": "tree_1", "name": "Tree 1", "file": "Tree_1.gltf" },
+        { "id": "tree_2", "name": "Tree 2", "file": "Tree_2.gltf" },
+        { "id": "tree_3", "name": "Tree 3", "file": "Tree_3.gltf" }
+      ]
+    },
+    "pixelBlocks": {
+      "name": "Pixel Blocks",
+      "path": "Pixel Blocks/glTF",
+      "assets": [
+        { "id": "pixel_block_blank", "name": "Blank Block", "file": "Block_Blank.gltf" },
+        { "id": "pixel_block_square", "name": "Square Block", "file": "Block_Square.gltf" },
+        { "id": "pixel_bricks_dark", "name": "Dark Bricks", "file": "Bricks_Dark.gltf" },
+        { "id": "pixel_bricks_grey", "name": "Grey Bricks", "file": "Bricks_Grey.gltf" },
+        { "id": "pixel_bricks_red", "name": "Red Bricks", "file": "Bricks_Red.gltf" },
+        { "id": "pixel_bricks_yellow", "name": "Yellow Bricks", "file": "Bricks_Yellow.gltf" },
+        { "id": "pixel_coal", "name": "Coal", "file": "Coal.gltf" },
+        { "id": "pixel_diamond", "name": "Diamond", "file": "Diamond.gltf" },
+        { "id": "pixel_dirt", "name": "Dirt", "file": "Dirt.gltf" },
+        { "id": "pixel_exclamation", "name": "Exclamation Block", "file": "Exclamation.gltf" },
+        { "id": "pixel_grass", "name": "Grass", "file": "Grass.gltf" },
+        { "id": "pixel_ice", "name": "Ice", "file": "Ice.gltf" },
+        { "id": "pixel_leaves", "name": "Leaves", "file": "Leaves.gltf" },
+        { "id": "pixel_questionmark", "name": "Question Mark Block", "file": "QuestionMark.gltf" },
+        { "id": "pixel_snow", "name": "Snow", "file": "Snow.gltf" },
+        { "id": "pixel_stone", "name": "Stone", "file": "Stone.gltf" },
+        { "id": "pixel_wood", "name": "Wood", "file": "Wood.gltf" },
+        { "id": "pixel_woodplanks", "name": "Wood Planks", "file": "WoodPlanks.gltf" }
+      ]
+    },
+    "tools": {
+      "name": "Tools",
+      "path": "Tools/glTF",
+      "assets": [
+        { "id": "axe_diamond", "name": "Diamond Axe", "file": "Axe_Diamond.gltf", "material": "diamond", "type": "axe" },
+        { "id": "axe_gold", "name": "Gold Axe", "file": "Axe_Gold.gltf", "material": "gold", "type": "axe" },
+        { "id": "axe_stone", "name": "Stone Axe", "file": "Axe_Stone.gltf", "material": "stone", "type": "axe" },
+        { "id": "axe_wood", "name": "Wood Axe", "file": "Axe_Wood.gltf", "material": "wood", "type": "axe" },
+        { "id": "pickaxe_diamond", "name": "Diamond Pickaxe", "file": "Pickaxe_Diamond.gltf", "material": "diamond", "type": "pickaxe" },
+        { "id": "pickaxe_gold", "name": "Gold Pickaxe", "file": "Pickaxe_Gold.gltf", "material": "gold", "type": "pickaxe" },
+        { "id": "pickaxe_stone", "name": "Stone Pickaxe", "file": "Pickaxe_Stone.gltf", "material": "stone", "type": "pickaxe" },
+        { "id": "pickaxe_wood", "name": "Wood Pickaxe", "file": "Pickaxe_Wood.gltf", "material": "wood", "type": "pickaxe" },
+        { "id": "shovel_diamond", "name": "Diamond Shovel", "file": "Shovel_Diamond.gltf", "material": "diamond", "type": "shovel" },
+        { "id": "shovel_gold", "name": "Gold Shovel", "file": "Shovel_Gold.gltf", "material": "gold", "type": "shovel" },
+        { "id": "shovel_stone", "name": "Stone Shovel", "file": "Shovel_Stone.gltf", "material": "stone", "type": "shovel" },
+        { "id": "shovel_wood", "name": "Wood Shovel", "file": "Shovel_Wood.gltf", "material": "wood", "type": "shovel" },
+        { "id": "sword_diamond", "name": "Diamond Sword", "file": "Sword_Diamond.gltf", "material": "diamond", "type": "sword" },
+        { "id": "sword_gold", "name": "Gold Sword", "file": "Sword_Gold.gltf", "material": "gold", "type": "sword" },
+        { "id": "sword_stone", "name": "Stone Sword", "file": "Sword_Stone.gltf", "material": "stone", "type": "sword" },
+        { "id": "sword_wood", "name": "Wood Sword", "file": "Sword_Wood.gltf", "material": "wood", "type": "sword" }
+      ]
+    }
+  },
+  "stats": {
+    "totalAssets": 107,
+    "byCategory": {
+      "animals": 9,
+      "blocks": 15,
+      "characters": 4,
+      "enemies": 9,
+      "environment": 36,
+      "pixelBlocks": 18,
+      "tools": 16
+    }
+  }
+}
