@@ -5,6 +5,7 @@ export interface MazeRenderData {
   root: THREE.Group;
   tileVisuals: Map<string, { floor: THREE.Mesh; wall?: THREE.Mesh }>;
   exitMarker: THREE.Mesh;
+  exitVisual?: THREE.Object3D;
 }
 
 function tileKey(x: number, y: number): string {

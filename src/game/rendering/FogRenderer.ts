@@ -35,6 +35,12 @@ export class FogRenderer {
 
   applyExitVisibility(maze: MazeInstance, renderData: MazeRenderData): void {
     const exitCell = maze.cells[maze.exit.y][maze.exit.x];
+    if (renderData.exitVisual) {
+      renderData.exitMarker.visible = false;
+      renderData.exitVisual.visible = exitCell.currentlyVisible;
+      return;
+    }
+
     renderData.exitMarker.visible = exitCell.currentlyVisible;
   }
 

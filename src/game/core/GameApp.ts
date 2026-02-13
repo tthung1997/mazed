@@ -65,6 +65,7 @@ export class GameApp {
   private mazeRenderData: MazeRenderData | null = null;
   private previousPlayerTile = { x: -1, y: -1 };
   private visibilityRadius = BASE_VISIBILITY_RADIUS;
+  private mazeBuildVersion = 0;
   private playerFacingYaw = 0;
   private playerAnimationMixer: THREE.AnimationMixer | null = null;
   private playerIdleAction: THREE.AnimationAction | null = null;
@@ -207,6 +208,8 @@ export class GameApp {
     const params = getMazeParams(this.state.playerSeed, this.state.currentMaze);
     const maze = this.mazeGenerator.generate(params);
     this.state.maze = maze;
+    this.mazeBuildVersion += 1;
+    const buildVersion = this.mazeBuildVersion;
 
     this.portalSystem.reset();
     this.previousPlayerTile = { x: -1, y: -1 };
@@ -217,6 +220,7 @@ export class GameApp {
 
     this.mazeRenderData = this.mazeBuilder.build(maze);
     this.sceneManager.scene.add(this.mazeRenderData.root);
+    void this.applyExitPortalVisual(this.mazeRenderData, maze, buildVersion);
 
     this.player.placeAtTile(maze.entry.x, maze.entry.y);
     this.playerFacingYaw = 0;
@@ -466,5 +470,52 @@ export class GameApp {
   private lerpAngle(current: number, target: number, t: number): number {
     const delta = Math.atan2(Math.sin(target - current), Math.cos(target - current));
     return current + delta * t;
+  }
+
+  private async applyExitPortalVisual(renderData: MazeRenderData, maze: { exit: { x: number; y: number }; cells: Array<Array<{ currentlyVisible: boolean }> > }, buildVersion: number): Promise<void> {
+    try {
+      const model = await this.assets.loadExitPortalModel();
+
+      if (buildVersion !== this.mazeBuildVersion || this.mazeRenderData !== renderData) {
+        return;
+      }
+
+      this.fitExitPortalModel(model);
+      model.position.set(renderData.exitMarker.position.x, 0, renderData.exitMarker.position.z);
+
+      if (renderData.exitVisual) {
+        renderData.root.remove(renderData.exitVisual);
+      }
+
+      renderData.root.add(model);
+      renderData.exitVisual = model;
+
+      const exitCell = maze.cells[maze.exit.y][maze.exit.x];
+      renderData.exitMarker.visible = false;
+      renderData.exitVisual.visible = exitCell.currentlyVisible;
+    } catch (error) {
+      console.warn('Failed to load exit portal model. Keeping fallback exit marker.', error);
+    }
+  }
+
+  private fitExitPortalModel(model: THREE.Object3D): void {
+    model.position.set(0, 0, 0);
+    model.updateWorldMatrix(true, true);
+
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+
+    if (size.y > 0) {
+      const targetHeight = 0.85;
+      const scale = targetHeight / size.y;
+      model.scale.setScalar(scale);
+    }
+
+    model.updateWorldMatrix(true, true);
+    const scaledBounds = new THREE.Box3().setFromObject(model);
+    const center = scaledBounds.getCenter(new THREE.Vector3());
+    const minY = scaledBounds.min.y;
+
+    model.position.set(-center.x, -minY, -center.z);
   }
 }
