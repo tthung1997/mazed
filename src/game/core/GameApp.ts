@@ -11,6 +11,7 @@ import { FogRenderer } from '../rendering/FogRenderer';
 import { MazeBuilder, type MazeRenderData } from '../rendering/MazeBuilder';
 import { SceneManager } from '../rendering/SceneManager';
 import { AssetRegistry } from '../rendering/AssetRegistry';
+import type { MazeInstance } from '../maze/MazeTypes';
 import { HudController } from '../ui/HudController';
 import { MenuController } from '../ui/MenuController';
 import { SaveCodeModal } from '../ui/SaveCodeModal';
@@ -24,6 +25,8 @@ import { TransitionSystem } from '../systems/TransitionSystem';
 const PLAYER_TURN_SPEED = 14;
 const PLAYER_MODEL_YAW_OFFSET = 0;
 const PLAYER_ANIMATION_BLEND_SECONDS = 0.14;
+const FLOOR_TILE_HEIGHT = 0.04;
+const WALL_TILE_HEIGHT = 1.2;
 
 function randomSeed(length: number): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -220,6 +223,7 @@ export class GameApp {
 
     this.mazeRenderData = this.mazeBuilder.build(maze);
     this.sceneManager.scene.add(this.mazeRenderData.root);
+    void this.applyTileModels(this.mazeRenderData, maze, buildVersion);
     void this.applyExitPortalVisual(this.mazeRenderData, maze, buildVersion);
 
     this.player.placeAtTile(maze.entry.x, maze.entry.y);
@@ -472,6 +476,49 @@ export class GameApp {
     return current + delta * t;
   }
 
+  private async applyTileModels(renderData: MazeRenderData, maze: MazeInstance, buildVersion: number): Promise<void> {
+    try {
+      const floorTemplate = await this.assets.loadFloorTileModel();
+      const wallTemplate = await this.assets.loadWallTileModel();
+
+      if (buildVersion !== this.mazeBuildVersion || this.mazeRenderData !== renderData) {
+        return;
+      }
+
+      for (const [key, visuals] of renderData.tileVisuals.entries()) {
+        const [xStr, yStr] = key.split(',');
+        const x = Number(xStr);
+        const y = Number(yStr);
+        const cell = maze.cells[y][x];
+
+        const floorModel = floorTemplate.clone(true);
+        this.fitTileModel(floorModel, FLOOR_TILE_HEIGHT);
+        floorModel.position.set(x + 0.5, -FLOOR_TILE_HEIGHT * 0.5, y + 0.5);
+
+        renderData.root.remove(visuals.floor);
+        renderData.root.add(floorModel);
+        visuals.floor = floorModel;
+        visuals.floorMaterials = this.collectTileMaterials(floorModel);
+
+        if (cell.type === 'wall' && visuals.wall) {
+          const wallModel = wallTemplate.clone(true);
+          this.fitTileModel(wallModel, WALL_TILE_HEIGHT);
+          wallModel.position.set(x + 0.5, WALL_TILE_HEIGHT * 0.5, y + 0.5);
+
+          renderData.root.remove(visuals.wall);
+          renderData.root.add(wallModel);
+          visuals.wall = wallModel;
+          visuals.wallMaterials = this.collectTileMaterials(wallModel);
+        }
+      }
+
+      this.fogRenderer.applyFull(maze, renderData);
+      this.fogRenderer.applyExitVisibility(maze, renderData);
+    } catch (error) {
+      console.warn('Failed to load tile models. Keeping fallback tile meshes.', error);
+    }
+  }
+
   private async applyExitPortalVisual(renderData: MazeRenderData, maze: { exit: { x: number; y: number }; cells: Array<Array<{ currentlyVisible: boolean }> > }, buildVersion: number): Promise<void> {
     try {
       const model = await this.assets.loadExitPortalModel();
@@ -517,5 +564,58 @@ export class GameApp {
     const minY = scaledBounds.min.y;
 
     model.position.set(-center.x, -minY, -center.z);
+  }
+
+  private fitTileModel(model: THREE.Object3D, targetHeight: number): void {
+    model.position.set(0, 0, 0);
+    model.scale.set(1, 1, 1);
+    model.updateWorldMatrix(true, true);
+
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+
+    if (size.x > 0 && size.y > 0 && size.z > 0) {
+      model.scale.set(1 / size.x, targetHeight / size.y, 1 / size.z);
+    }
+
+    model.updateWorldMatrix(true, true);
+    const scaledBounds = new THREE.Box3().setFromObject(model);
+    const center = scaledBounds.getCenter(new THREE.Vector3());
+    model.position.set(-center.x, -center.y, -center.z);
+  }
+
+  private collectTileMaterials(object: THREE.Object3D): THREE.MeshStandardMaterial[] {
+    const materials: THREE.MeshStandardMaterial[] = [];
+
+    object.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) {
+        return;
+      }
+
+      if (Array.isArray(node.material)) {
+        const clonedMaterials = node.material.map((material) => {
+          if (material instanceof THREE.MeshStandardMaterial) {
+            const cloned = material.clone();
+            cloned.transparent = true;
+            materials.push(cloned);
+            return cloned;
+          }
+
+          return material;
+        });
+
+        node.material = clonedMaterials;
+        return;
+      }
+
+      if (node.material instanceof THREE.MeshStandardMaterial) {
+        const cloned = node.material.clone();
+        cloned.transparent = true;
+        node.material = cloned;
+        materials.push(cloned);
+      }
+    });
+
+    return materials;
   }
 }

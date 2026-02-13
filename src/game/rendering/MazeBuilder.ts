@@ -3,7 +3,12 @@ import type { MazeInstance, MazeCell } from '../maze/MazeTypes';
 
 export interface MazeRenderData {
   root: THREE.Group;
-  tileVisuals: Map<string, { floor: THREE.Mesh; wall?: THREE.Mesh }>;
+  tileVisuals: Map<string, {
+    floor: THREE.Object3D;
+    floorMaterials: THREE.MeshStandardMaterial[];
+    wall?: THREE.Object3D;
+    wallMaterials?: THREE.MeshStandardMaterial[];
+  }>;
   exitMarker: THREE.Mesh;
   exitVisual?: THREE.Object3D;
 }
@@ -20,7 +25,12 @@ export class MazeBuilder {
     const floorGeometry = new THREE.BoxGeometry(1, 0.12, 1);
     const wallGeometry = new THREE.BoxGeometry(1, 1, 1);
 
-    const tileVisuals = new Map<string, { floor: THREE.Mesh; wall?: THREE.Mesh }>();
+    const tileVisuals = new Map<string, {
+      floor: THREE.Object3D;
+      floorMaterials: THREE.MeshStandardMaterial[];
+      wall?: THREE.Object3D;
+      wallMaterials?: THREE.MeshStandardMaterial[];
+    }>();
 
     for (let y = 0; y < maze.height; y += 1) {
       for (let x = 0; x < maze.width; x += 1) {
@@ -57,8 +67,10 @@ export class MazeBuilder {
   }
 
   private buildTile(cell: MazeCell, floorGeometry: THREE.BufferGeometry, wallGeometry: THREE.BufferGeometry): {
-    floor: THREE.Mesh;
-    wall?: THREE.Mesh;
+    floor: THREE.Object3D;
+    floorMaterials: THREE.MeshStandardMaterial[];
+    wall?: THREE.Object3D;
+    wallMaterials?: THREE.MeshStandardMaterial[];
   } {
     const floorColor = cell.type === 'entry' ? '#6ee7b7' : cell.type === 'exit' ? '#93c5fd' : '#4b5563';
     const floor = new THREE.Mesh(
@@ -72,7 +84,10 @@ export class MazeBuilder {
     );
 
     if (cell.type !== 'wall') {
-      return { floor };
+      return {
+        floor,
+        floorMaterials: [floor.material as THREE.MeshStandardMaterial],
+      };
     }
 
     const wall = new THREE.Mesh(
@@ -85,6 +100,11 @@ export class MazeBuilder {
       }),
     );
 
-    return { floor, wall };
+    return {
+      floor,
+      floorMaterials: [floor.material as THREE.MeshStandardMaterial],
+      wall,
+      wallMaterials: [wall.material as THREE.MeshStandardMaterial],
+    };
   }
 }

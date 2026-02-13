@@ -1,6 +1,5 @@
 import type { MazeCell, MazeInstance } from '../maze/MazeTypes';
 import type { MazeRenderData } from './MazeBuilder';
-import type { MeshStandardMaterial } from 'three';
 
 function tileKey(x: number, y: number): string {
   return `${x},${y}`;
@@ -12,7 +11,7 @@ function opacityForCell(cell: MazeCell): number {
   }
 
   if (cell.explored) {
-    return 0.35;
+    return 0.2;
   }
 
   return 0;
@@ -52,14 +51,18 @@ export class FogRenderer {
     }
 
     const opacity = opacityForCell(cell);
-    const floorMaterial = visuals.floor.material as MeshStandardMaterial;
     visuals.floor.visible = opacity > 0;
-    floorMaterial.opacity = opacity;
+    for (const material of visuals.floorMaterials) {
+      material.transparent = true;
+      material.opacity = opacity;
+    }
 
     if (visuals.wall) {
-      const wallMaterial = visuals.wall.material as MeshStandardMaterial;
       visuals.wall.visible = opacity > 0;
-      wallMaterial.opacity = opacity;
+      for (const material of visuals.wallMaterials ?? []) {
+        material.transparent = true;
+        material.opacity = opacity;
+      }
     }
   }
 }
