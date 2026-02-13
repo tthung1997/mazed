@@ -15,8 +15,8 @@ export class SceneManager {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
-    this.scene.background = new THREE.Color('#0b1021');
-    this.scene.fog = new THREE.Fog('#0b1021', 10, 36);
+    this.scene.background = new THREE.Color('#02040a');
+    this.scene.fog = new THREE.Fog('#02040a', 10, 36);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.65);
     this.scene.add(ambient);
