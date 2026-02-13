@@ -7,5 +7,17 @@ if (!appRoot) {
   throw new Error('App root not found');
 }
 
-const game = new GameApp(appRoot);
+let game = new GameApp(appRoot);
 game.start();
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    game.destroy();
+  });
+
+  import.meta.hot.accept(() => {
+    game.destroy();
+    game = new GameApp(appRoot);
+    game.start();
+  });
+}
