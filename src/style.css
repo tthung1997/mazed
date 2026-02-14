@@ -60,6 +60,22 @@ body,
   margin-bottom: 8px;
 }
 
+.character-preview-wrap {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.2);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.character-preview {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .panel input,
 .panel select,
 .panel textarea,

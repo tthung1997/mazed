@@ -148,6 +148,7 @@ export class GameApp {
   destroy(): void {
     this.gameLoop.stop();
     this.input.dispose();
+    this.menus.destroy();
     window.removeEventListener('keydown', this.handleGlobalKeyDown);
     window.removeEventListener('resize', this.handleResize);
 
