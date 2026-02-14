@@ -25,6 +25,9 @@ export class MenuController {
   private startVisible = true;
   private previewWidth = 0;
   private previewHeight = 0;
+  private previewYaw = 0;
+  private draggingPreview = false;
+  private previewLastPointerX = 0;
 
   constructor(
     parent: HTMLElement,
@@ -102,6 +105,28 @@ export class MenuController {
         callbacks.onCharacterChange(value);
         void this.loadPreviewCharacter(value);
       }
+    });
+    this.previewCanvas.addEventListener('pointerdown', (event) => {
+      this.draggingPreview = true;
+      this.previewLastPointerX = event.clientX;
+      this.previewCanvas.setPointerCapture(event.pointerId);
+    });
+    this.previewCanvas.addEventListener('pointermove', (event) => {
+      if (!this.draggingPreview) {
+        return;
+      }
+
+      const deltaX = event.clientX - this.previewLastPointerX;
+      this.previewLastPointerX = event.clientX;
+      this.rotatePreview(deltaX * 0.01);
+    });
+    this.previewCanvas.addEventListener('pointerup', (event) => {
+      this.draggingPreview = false;
+      this.previewCanvas.releasePointerCapture(event.pointerId);
+    });
+    this.previewCanvas.addEventListener('pointercancel', (event) => {
+      this.draggingPreview = false;
+      this.previewCanvas.releasePointerCapture(event.pointerId);
     });
     this.pauseMenu.querySelector('[data-action="resume"]')?.addEventListener('click', callbacks.onResume);
     this.pauseMenu.querySelector('[data-action="save"]')?.addEventListener('click', callbacks.onSave);
@@ -257,5 +282,11 @@ export class MenuController {
     const minY = fittedBounds.min.y;
 
     model.position.set(-center.x, -minY, -center.z);
+  }
+
+  private rotatePreview(deltaYaw: number): void {
+    this.previewYaw += deltaYaw;
+    this.previewRoot.rotation.y = this.previewYaw;
+    this.previewRenderer.render(this.previewScene, this.previewCamera);
   }
 }

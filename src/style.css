@@ -89,6 +89,11 @@ body,
   font-size: 14px;
 }
 
+.panel select {
+  text-align: center;
+  text-align-last: center;
+}
+
 .panel textarea {
   min-height: 84px;
   resize: vertical;
