@@ -1,5 +1,6 @@
 import type { SaveError, SaveState } from '../types/save';
 import { makeChecksum } from './checksum';
+import { DEFAULT_PLAYER_CHARACTER_ID, isPlayerCharacterId } from '../game/rendering/AssetRegistry';
 
 const PREFIX = 'MAZED';
 const VERSION = 1;
@@ -123,6 +124,10 @@ export const SaveCodec = {
       value: {
         version: VERSION,
         seed: value.seed,
+        playerCharacterId:
+          typeof value.playerCharacterId === 'string' && isPlayerCharacterId(value.playerCharacterId)
+            ? value.playerCharacterId
+            : DEFAULT_PLAYER_CHARACTER_ID,
         currentMaze: value.currentMaze,
         unlockedTools: value.unlockedTools ?? 0,
         inventory: value.inventory ?? [],

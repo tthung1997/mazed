@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SaveCodec } from '../src/utils/saveCode';
 import { makeChecksum } from '../src/utils/checksum';
 import type { SaveState } from '../src/types/save';
+import { DEFAULT_PLAYER_CHARACTER_ID } from '../src/game/rendering/AssetRegistry';
 
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
@@ -30,6 +31,7 @@ describe('SaveCodec', () => {
     const state: SaveState = {
       version: 1,
       seed: 'abc123',
+      playerCharacterId: 'character_female_1',
       currentMaze: 7,
       unlockedTools: 3,
       inventory: [1, 2],
@@ -52,6 +54,7 @@ describe('SaveCodec', () => {
     const state: SaveState = {
       version: 1,
       seed: 'seed-z',
+      playerCharacterId: 'character_male_2',
       currentMaze: 2,
       unlockedTools: 0,
       inventory: [],
@@ -81,6 +84,7 @@ describe('SaveCodec', () => {
     const code = encodeCustomPayload({
       version: 2,
       seed: 'future-seed',
+      playerCharacterId: 'character_male_1',
       currentMaze: 11,
       unlockedTools: 0,
       inventory: [],
@@ -94,6 +98,26 @@ describe('SaveCodec', () => {
     expect(decoded.ok).toBe(false);
     if (!decoded.ok) {
       expect(decoded.error.code).toBe('unsupported_version');
+    }
+  });
+
+  it('defaults character when loading old payload without playerCharacterId', () => {
+    const code = encodeCustomPayload({
+      version: 1,
+      seed: 'legacy-seed',
+      currentMaze: 3,
+      unlockedTools: 0,
+      inventory: [],
+      completedMazes: [1, 2],
+      artifacts: 0,
+      playtime: 42,
+    });
+
+    const decoded = SaveCodec.decode(code);
+
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) {
+      expect(decoded.value.playerCharacterId).toBe(DEFAULT_PLAYER_CHARACTER_ID);
     }
   });
 });

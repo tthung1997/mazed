@@ -1,6 +1,9 @@
+import type { PlayerCharacterId } from '../game/rendering/AssetRegistry';
+
 export interface SaveState {
   version: number;
   seed: string;
+  playerCharacterId: PlayerCharacterId;
   currentMaze: number;
   unlockedTools: number;
   inventory: number[];

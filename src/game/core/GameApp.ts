@@ -10,7 +10,7 @@ import { CameraController } from '../rendering/CameraController';
 import { FogRenderer } from '../rendering/FogRenderer';
 import { MazeBuilder, type MazeRenderData } from '../rendering/MazeBuilder';
 import { SceneManager } from '../rendering/SceneManager';
-import { AssetRegistry } from '../rendering/AssetRegistry';
+import { AssetRegistry, type PlayerCharacterId } from '../rendering/AssetRegistry';
 import type { MazeInstance } from '../maze/MazeTypes';
 import { HudController } from '../ui/HudController';
 import { MenuController } from '../ui/MenuController';
@@ -78,6 +78,7 @@ export class GameApp {
   private playerIdleAction: THREE.AnimationAction | null = null;
   private playerWalkAction: THREE.AnimationAction | null = null;
   private activePlayerAction: THREE.AnimationAction | null = null;
+  private playerCharacterLoadToken = 0;
   private perfHudVisible = false;
   private perfSampleElapsed = 0;
   private perfSampleFrames = 0;
@@ -108,16 +109,18 @@ export class GameApp {
     this.playerVisual.add(this.playerModelPivot);
     this.playerModelPivot.add(this.createFallbackPlayerVisual());
     this.sceneManager.scene.add(this.playerVisual);
-    void this.loadPlayerCharacter();
+    void this.loadPlayerCharacter(this.state.playerCharacterId);
 
     this.hud = new HudController(this.overlay);
     this.menus = new MenuController(this.overlay, {
       onNewGame: () => this.startNewGame(),
       onOpenLoad: () => this.openSaveModal(),
+      onCharacterChange: (characterId) => this.applyPlayerCharacter(characterId),
       onResume: () => this.resumeGame(),
       onSave: () => this.openSaveModal(),
       onQuit: () => this.quitToMenu(),
     });
+    this.menus.setSelectedCharacterId(this.state.playerCharacterId);
 
     this.saveModal = new SaveCodeModal(
       this.overlay,
@@ -208,6 +211,7 @@ export class GameApp {
   };
 
   private startNewGame(): void {
+    this.applyPlayerCharacter(this.menus.getSelectedCharacterId());
     this.state.playerSeed = randomSeed(8);
     this.state.currentMaze = 1;
     this.state.completedMazes = [];
@@ -313,6 +317,7 @@ export class GameApp {
     const payload: SaveState = {
       version: 1,
       seed: this.state.playerSeed,
+      playerCharacterId: this.state.playerCharacterId,
       currentMaze: this.state.currentMaze,
       unlockedTools: this.state.unlockedToolsMask,
       inventory: this.state.inventory,
@@ -333,6 +338,7 @@ export class GameApp {
     }
 
     const payload = result.value;
+    this.applyPlayerCharacter(payload.playerCharacterId);
     this.state.playerSeed = payload.seed;
     this.state.currentMaze = payload.currentMaze;
     this.state.unlockedToolsMask = payload.unlockedTools;
@@ -450,9 +456,26 @@ export class GameApp {
     return group;
   }
 
-  private async loadPlayerCharacter(): Promise<void> {
+  private applyPlayerCharacter(characterId: PlayerCharacterId): void {
+    if (this.state.playerCharacterId === characterId) {
+      return;
+    }
+
+    this.state.playerCharacterId = characterId;
+    this.menus.setSelectedCharacterId(characterId);
+    void this.loadPlayerCharacter(characterId);
+  }
+
+  private async loadPlayerCharacter(characterId: PlayerCharacterId): Promise<void> {
+    const loadToken = ++this.playerCharacterLoadToken;
+
     try {
-      const { model, animations } = await this.assets.loadPlayerCharacter();
+      const { model, animations } = await this.assets.loadPlayerCharacter(characterId);
+
+      if (loadToken !== this.playerCharacterLoadToken) {
+        return;
+      }
+
       this.fitPlayerCharacter(model);
       this.setupPlayerAnimation(model, animations);
 
@@ -460,6 +483,10 @@ export class GameApp {
       this.playerModelPivot.add(model);
       this.syncPlayerVisualPosition();
     } catch (error) {
+      if (loadToken !== this.playerCharacterLoadToken) {
+        return;
+      }
+
       console.warn('Failed to load Cubeworld player character. Keeping fallback mesh.', error);
     }
   }
