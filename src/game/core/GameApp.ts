@@ -498,14 +498,16 @@ export class GameApp {
 
           const cell = maze.cells[y][x];
 
-          const floorModel = floorTemplate.clone(true);
-          floorModel.position.set(x + 0.5, -FLOOR_TILE_HEIGHT * 0.5, y + 0.5);
-          this.freezeStaticTransformRecursive(floorModel);
+          if (cell.type !== 'wall') {
+            const floorModel = floorTemplate.clone(true);
+            floorModel.position.set(x + 0.5, -FLOOR_TILE_HEIGHT * 0.5, y + 0.5);
+            this.freezeStaticTransformRecursive(floorModel);
 
-          renderData.root.remove(visuals.floor);
-          renderData.root.add(floorModel);
-          visuals.floor = floorModel;
-          visuals.floorMaterials = this.collectTileMaterials(floorModel);
+            renderData.root.remove(visuals.floor);
+            renderData.root.add(floorModel);
+            visuals.floor = floorModel;
+            visuals.floorMaterials = this.collectTileMaterials(floorModel);
+          }
 
           if (cell.type === 'wall' && visuals.wall) {
             const wallModel = wallTemplate.clone(true);
