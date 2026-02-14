@@ -481,34 +481,42 @@ export class GameApp {
       const floorTemplate = await this.assets.loadFloorTileModel();
       const wallTemplate = await this.assets.loadWallTileModel();
 
+      this.fitTileModel(floorTemplate, FLOOR_TILE_HEIGHT);
+      this.fitTileModel(wallTemplate, WALL_TILE_HEIGHT);
+
       if (buildVersion !== this.mazeBuildVersion || this.mazeRenderData !== renderData) {
         return;
       }
 
-      for (const [key, visuals] of renderData.tileVisuals.entries()) {
-        const [xStr, yStr] = key.split(',');
-        const x = Number(xStr);
-        const y = Number(yStr);
-        const cell = maze.cells[y][x];
+      for (let y = 0; y < maze.height; y += 1) {
+        for (let x = 0; x < maze.width; x += 1) {
+          const visuals = renderData.tileVisuals.get(`${x},${y}`);
 
-        const floorModel = floorTemplate.clone(true);
-        this.fitTileModel(floorModel, FLOOR_TILE_HEIGHT);
-        floorModel.position.set(x + 0.5, -FLOOR_TILE_HEIGHT * 0.5, y + 0.5);
+          if (!visuals) {
+            continue;
+          }
 
-        renderData.root.remove(visuals.floor);
-        renderData.root.add(floorModel);
-        visuals.floor = floorModel;
-        visuals.floorMaterials = this.collectTileMaterials(floorModel);
+          const cell = maze.cells[y][x];
 
-        if (cell.type === 'wall' && visuals.wall) {
-          const wallModel = wallTemplate.clone(true);
-          this.fitTileModel(wallModel, WALL_TILE_HEIGHT);
-          wallModel.position.set(x + 0.5, WALL_TILE_HEIGHT * 0.5, y + 0.5);
+          const floorModel = floorTemplate.clone(true);
+          floorModel.position.set(x + 0.5, -FLOOR_TILE_HEIGHT * 0.5, y + 0.5);
+          this.freezeStaticTransformRecursive(floorModel);
 
-          renderData.root.remove(visuals.wall);
-          renderData.root.add(wallModel);
-          visuals.wall = wallModel;
-          visuals.wallMaterials = this.collectTileMaterials(wallModel);
+          renderData.root.remove(visuals.floor);
+          renderData.root.add(floorModel);
+          visuals.floor = floorModel;
+          visuals.floorMaterials = this.collectTileMaterials(floorModel);
+
+          if (cell.type === 'wall' && visuals.wall) {
+            const wallModel = wallTemplate.clone(true);
+            wallModel.position.set(x + 0.5, WALL_TILE_HEIGHT * 0.5, y + 0.5);
+            this.freezeStaticTransformRecursive(wallModel);
+
+            renderData.root.remove(visuals.wall);
+            renderData.root.add(wallModel);
+            visuals.wall = wallModel;
+            visuals.wallMaterials = this.collectTileMaterials(wallModel);
+          }
         }
       }
 
@@ -529,6 +537,7 @@ export class GameApp {
 
       this.fitExitPortalModel(model);
       model.position.set(renderData.exitMarker.position.x, 0, renderData.exitMarker.position.z);
+      this.freezeStaticTransformRecursive(model);
 
       if (renderData.exitVisual) {
         renderData.root.remove(renderData.exitVisual);
@@ -617,5 +626,14 @@ export class GameApp {
     });
 
     return materials;
+  }
+
+  private freezeStaticTransformRecursive(object: THREE.Object3D): void {
+    object.traverse((node) => {
+      node.updateMatrix();
+      node.matrixAutoUpdate = false;
+    });
+
+    object.updateMatrixWorld(true);
   }
 }

@@ -15,28 +15,34 @@ export interface CharacterAsset {
 
 export class AssetRegistry {
   private readonly gltfLoader = new GLTFLoader();
-  private playerCharacterPromise: Promise<GLTF> | null = null;
-  private exitPortalPromise: Promise<GLTF> | null = null;
-  private floorTilePromise: Promise<GLTF> | null = null;
-  private wallTilePromise: Promise<GLTF> | null = null;
+  private readonly gltfPromises = new Map<string, Promise<GLTF>>();
 
-  async loadPlayerCharacter(): Promise<CharacterAsset> {
-    if (!this.playerCharacterPromise) {
-      this.playerCharacterPromise = new Promise<GLTF>((resolve, reject) => {
-        this.gltfLoader.load(
-          PLAYER_CHARACTER_URL,
-          (gltf) => {
-            resolve(gltf);
-          },
-          undefined,
-          (error) => {
-            reject(error instanceof Error ? error : new Error('Failed to load player character model.'));
-          },
-        );
-      });
+  private loadGltf(url: string, errorMessage: string): Promise<GLTF> {
+    const existing = this.gltfPromises.get(url);
+
+    if (existing) {
+      return existing;
     }
 
-    const gltf = await this.playerCharacterPromise;
+    const promise = new Promise<GLTF>((resolve, reject) => {
+      this.gltfLoader.load(
+        url,
+        (gltf) => {
+          resolve(gltf);
+        },
+        undefined,
+        (error) => {
+          reject(error instanceof Error ? error : new Error(errorMessage));
+        },
+      );
+    });
+
+    this.gltfPromises.set(url, promise);
+    return promise;
+  }
+
+  async loadPlayerCharacter(): Promise<CharacterAsset> {
+    const gltf = await this.loadGltf(PLAYER_CHARACTER_URL, 'Failed to load player character model.');
     const model = cloneSkeleton(gltf.scene) as THREE.Group;
 
     model.traverse((node) => {
@@ -53,22 +59,7 @@ export class AssetRegistry {
   }
 
   async loadExitPortalModel(): Promise<THREE.Group> {
-    if (!this.exitPortalPromise) {
-      this.exitPortalPromise = new Promise<GLTF>((resolve, reject) => {
-        this.gltfLoader.load(
-          EXIT_PORTAL_URL,
-          (gltf) => {
-            resolve(gltf);
-          },
-          undefined,
-          (error) => {
-            reject(error instanceof Error ? error : new Error('Failed to load exit portal model.'));
-          },
-        );
-      });
-    }
-
-    const gltf = await this.exitPortalPromise;
+    const gltf = await this.loadGltf(EXIT_PORTAL_URL, 'Failed to load exit portal model.');
     const model = gltf.scene.clone(true);
 
     model.traverse((node) => {
@@ -82,44 +73,14 @@ export class AssetRegistry {
   }
 
   async loadFloorTileModel(): Promise<THREE.Group> {
-    if (!this.floorTilePromise) {
-      this.floorTilePromise = new Promise<GLTF>((resolve, reject) => {
-        this.gltfLoader.load(
-          FLOOR_TILE_URL,
-          (gltf) => {
-            resolve(gltf);
-          },
-          undefined,
-          (error) => {
-            reject(error instanceof Error ? error : new Error('Failed to load floor tile model.'));
-          },
-        );
-      });
-    }
-
-    const gltf = await this.floorTilePromise;
+    const gltf = await this.loadGltf(FLOOR_TILE_URL, 'Failed to load floor tile model.');
     const model = gltf.scene.clone(true);
     this.prepareStaticModel(model);
     return model;
   }
 
   async loadWallTileModel(): Promise<THREE.Group> {
-    if (!this.wallTilePromise) {
-      this.wallTilePromise = new Promise<GLTF>((resolve, reject) => {
-        this.gltfLoader.load(
-          WALL_TILE_URL,
-          (gltf) => {
-            resolve(gltf);
-          },
-          undefined,
-          (error) => {
-            reject(error instanceof Error ? error : new Error('Failed to load wall tile model.'));
-          },
-        );
-      });
-    }
-
-    const gltf = await this.wallTilePromise;
+    const gltf = await this.loadGltf(WALL_TILE_URL, 'Failed to load wall tile model.');
     const model = gltf.scene.clone(true);
     this.prepareStaticModel(model);
     return model;

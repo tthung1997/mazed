@@ -17,6 +17,11 @@ function tileKey(x: number, y: number): string {
   return `${x},${y}`;
 }
 
+function freezeStaticTransform(object: THREE.Object3D): void {
+  object.updateMatrix();
+  object.matrixAutoUpdate = false;
+}
+
 export class MazeBuilder {
   build(maze: MazeInstance): MazeRenderData {
     const root = new THREE.Group();
@@ -38,10 +43,12 @@ export class MazeBuilder {
         const visuals = this.buildTile(cell, floorGeometry, wallGeometry);
 
         visuals.floor.position.set(x + 0.5, -0.06, y + 0.5);
+        freezeStaticTransform(visuals.floor);
         root.add(visuals.floor);
 
         if (visuals.wall) {
           visuals.wall.position.set(x + 0.5, 0.5, y + 0.5);
+          freezeStaticTransform(visuals.wall);
           root.add(visuals.wall);
         }
 
@@ -57,7 +64,11 @@ export class MazeBuilder {
     });
     const exitMarker = new THREE.Mesh(exitGeometry, exitMaterial);
     exitMarker.position.set(maze.exit.x + 0.5, 0.25, maze.exit.y + 0.5);
+    freezeStaticTransform(exitMarker);
     root.add(exitMarker);
+
+    root.updateMatrix();
+    root.matrixAutoUpdate = false;
 
     return {
       root,

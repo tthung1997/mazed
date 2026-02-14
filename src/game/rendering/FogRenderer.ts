@@ -53,14 +53,12 @@ export class FogRenderer {
     const opacity = opacityForCell(cell);
     visuals.floor.visible = opacity > 0;
     for (const material of visuals.floorMaterials) {
-      material.transparent = true;
       material.opacity = opacity;
     }
 
     if (visuals.wall) {
       visuals.wall.visible = opacity > 0;
       for (const material of visuals.wallMaterials ?? []) {
-        material.transparent = true;
         material.opacity = opacity;
       }
     }
