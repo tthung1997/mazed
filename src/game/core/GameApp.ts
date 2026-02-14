@@ -27,6 +27,8 @@ const PLAYER_MODEL_YAW_OFFSET = 0;
 const PLAYER_ANIMATION_BLEND_SECONDS = 0.14;
 const FLOOR_TILE_HEIGHT = 0.04;
 const WALL_TILE_HEIGHT = 1.2;
+const PERF_UPDATE_INTERVAL_SECONDS = 0.5;
+const PERF_SAMPLE_WINDOW = 180;
 
 function randomSeed(length: number): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -64,6 +66,8 @@ export class GameApp {
   private readonly hud: HudController;
   private readonly menus: MenuController;
   private readonly saveModal: SaveCodeModal;
+  private readonly perfHudEnabled = import.meta.env.DEV;
+  private readonly perfHudEl: HTMLDivElement | null = null;
 
   private mazeRenderData: MazeRenderData | null = null;
   private previousPlayerTile = { x: -1, y: -1 };
@@ -74,6 +78,10 @@ export class GameApp {
   private playerIdleAction: THREE.AnimationAction | null = null;
   private playerWalkAction: THREE.AnimationAction | null = null;
   private activePlayerAction: THREE.AnimationAction | null = null;
+  private perfHudVisible = false;
+  private perfSampleElapsed = 0;
+  private perfSampleFrames = 0;
+  private readonly frameTimeSamplesMs: number[] = [];
 
   constructor(private readonly mountPoint: HTMLDivElement) {
     this.root = document.createElement('div');
@@ -116,6 +124,12 @@ export class GameApp {
       (code) => this.loadFromCode(code),
       () => this.closeSaveModal(),
     );
+
+    if (this.perfHudEnabled) {
+      this.perfHudEl = this.createPerfHud();
+      this.overlay.appendChild(this.perfHudEl);
+      this.setPerfHudVisible(false);
+    }
 
     window.addEventListener('keydown', this.handleGlobalKeyDown);
     window.addEventListener('resize', this.handleResize);
@@ -190,6 +204,7 @@ export class GameApp {
     }
 
     this.sceneManager.render();
+    this.updatePerfHud(dt);
   };
 
   private startNewGame(): void {
@@ -341,6 +356,12 @@ export class GameApp {
   };
 
   private handleGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (this.perfHudEnabled && event.code === 'F3') {
+      event.preventDefault();
+      this.setPerfHudVisible(!this.perfHudVisible);
+      return;
+    }
+
     if (event.code !== 'Escape') {
       return;
     }
@@ -355,6 +376,68 @@ export class GameApp {
       this.resumeGame();
     }
   };
+
+  private createPerfHud(): HTMLDivElement {
+    const el = document.createElement('div');
+    el.className = 'perf-hud hidden';
+    el.textContent = 'Perf HUD (F3)';
+    return el;
+  }
+
+  private setPerfHudVisible(visible: boolean): void {
+    this.perfHudVisible = visible;
+
+    if (!this.perfHudEl) {
+      return;
+    }
+
+    this.perfHudEl.classList.toggle('hidden', !visible);
+  }
+
+  private updatePerfHud(dt: number): void {
+    if (!this.perfHudEnabled || !this.perfHudEl) {
+      return;
+    }
+
+    const dtMs = dt * 1000;
+    this.frameTimeSamplesMs.push(dtMs);
+
+    if (this.frameTimeSamplesMs.length > PERF_SAMPLE_WINDOW) {
+      this.frameTimeSamplesMs.shift();
+    }
+
+    this.perfSampleElapsed += dt;
+    this.perfSampleFrames += 1;
+
+    if (this.perfSampleElapsed < PERF_UPDATE_INTERVAL_SECONDS) {
+      return;
+    }
+
+    const fps = this.perfSampleFrames / this.perfSampleElapsed;
+    const sorted = [...this.frameTimeSamplesMs].sort((a, b) => a - b);
+    const p95Index = Math.floor((sorted.length - 1) * 0.95);
+    const p95FrameMs = sorted.length > 0 ? sorted[p95Index] : 0;
+    const averageFrameMs =
+      this.frameTimeSamplesMs.length > 0
+        ? this.frameTimeSamplesMs.reduce((sum, sample) => sum + sample, 0) / this.frameTimeSamplesMs.length
+        : 0;
+
+    const renderInfo = this.sceneManager.renderer.info.render;
+
+    if (this.perfHudVisible) {
+      this.perfHudEl.textContent = [
+        'Perf HUD (F3)',
+        `FPS: ${fps.toFixed(1)}`,
+        `Frame ms avg: ${averageFrameMs.toFixed(2)}`,
+        `Frame ms p95: ${p95FrameMs.toFixed(2)}`,
+        `Draw calls: ${renderInfo.calls}`,
+        `Triangles: ${renderInfo.triangles}`,
+      ].join('\n');
+    }
+
+    this.perfSampleElapsed = 0;
+    this.perfSampleFrames = 0;
+  }
 
   private createFallbackPlayerVisual(): THREE.Object3D {
     const group = new THREE.Group();
