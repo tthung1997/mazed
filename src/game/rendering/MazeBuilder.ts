@@ -4,8 +4,8 @@ import type { MazeInstance, MazeCell } from '../maze/MazeTypes';
 export interface MazeRenderData {
   root: THREE.Group;
   tileVisuals: Map<string, {
-    floor: THREE.Object3D;
-    floorMaterials: THREE.MeshStandardMaterial[];
+    floor?: THREE.Object3D;
+    floorMaterials?: THREE.MeshStandardMaterial[];
     wall?: THREE.Object3D;
     wallMaterials?: THREE.MeshStandardMaterial[];
   }>;
@@ -31,8 +31,8 @@ export class MazeBuilder {
     const wallGeometry = new THREE.BoxGeometry(1, 1, 1);
 
     const tileVisuals = new Map<string, {
-      floor: THREE.Object3D;
-      floorMaterials: THREE.MeshStandardMaterial[];
+      floor?: THREE.Object3D;
+      floorMaterials?: THREE.MeshStandardMaterial[];
       wall?: THREE.Object3D;
       wallMaterials?: THREE.MeshStandardMaterial[];
     }>();
@@ -42,9 +42,11 @@ export class MazeBuilder {
         const cell = maze.cells[y][x];
         const visuals = this.buildTile(cell, floorGeometry, wallGeometry);
 
-        visuals.floor.position.set(x + 0.5, -0.06, y + 0.5);
-        freezeStaticTransform(visuals.floor);
-        root.add(visuals.floor);
+        if (visuals.floor) {
+          visuals.floor.position.set(x + 0.5, -0.06, y + 0.5);
+          freezeStaticTransform(visuals.floor);
+          root.add(visuals.floor);
+        }
 
         if (visuals.wall) {
           visuals.wall.position.set(x + 0.5, 0.5, y + 0.5);
@@ -78,23 +80,23 @@ export class MazeBuilder {
   }
 
   private buildTile(cell: MazeCell, floorGeometry: THREE.BufferGeometry, wallGeometry: THREE.BufferGeometry): {
-    floor: THREE.Object3D;
-    floorMaterials: THREE.MeshStandardMaterial[];
+    floor?: THREE.Object3D;
+    floorMaterials?: THREE.MeshStandardMaterial[];
     wall?: THREE.Object3D;
     wallMaterials?: THREE.MeshStandardMaterial[];
   } {
-    const floorColor = cell.type === 'entry' ? '#6ee7b7' : cell.type === 'exit' ? '#93c5fd' : '#4b5563';
-    const floor = new THREE.Mesh(
-      floorGeometry,
-      new THREE.MeshStandardMaterial({
-        color: floorColor,
-        roughness: 1,
-        transparent: true,
-        opacity: 1,
-      }),
-    );
-
     if (cell.type !== 'wall') {
+      const floorColor = cell.type === 'entry' ? '#6ee7b7' : cell.type === 'exit' ? '#93c5fd' : '#4b5563';
+      const floor = new THREE.Mesh(
+        floorGeometry,
+        new THREE.MeshStandardMaterial({
+          color: floorColor,
+          roughness: 1,
+          transparent: true,
+          opacity: 1,
+        }),
+      );
+
       return {
         floor,
         floorMaterials: [floor.material as THREE.MeshStandardMaterial],
@@ -112,8 +114,6 @@ export class MazeBuilder {
     );
 
     return {
-      floor,
-      floorMaterials: [floor.material as THREE.MeshStandardMaterial],
       wall,
       wallMaterials: [wall.material as THREE.MeshStandardMaterial],
     };

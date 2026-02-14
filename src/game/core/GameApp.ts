@@ -581,7 +581,7 @@ export class GameApp {
 
           const cell = maze.cells[y][x];
 
-          if (cell.type !== 'wall') {
+          if (cell.type !== 'wall' && visuals.floor) {
             const floorModel = floorTemplate.clone(true);
             floorModel.position.set(x + 0.5, -FLOOR_TILE_HEIGHT * 0.5, y + 0.5);
             this.freezeStaticTransformRecursive(floorModel);
