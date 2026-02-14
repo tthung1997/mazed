@@ -573,7 +573,7 @@ export class GameApp {
 
       for (let y = 0; y < maze.height; y += 1) {
         for (let x = 0; x < maze.width; x += 1) {
-          const visuals = renderData.tileVisuals.get(`${x},${y}`);
+          const visuals = renderData.tileVisuals[y]?.[x];
 
           if (!visuals) {
             continue;

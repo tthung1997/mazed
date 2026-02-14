@@ -1,10 +1,6 @@
 import type { MazeCell, MazeInstance } from '../maze/MazeTypes';
 import type { MazeRenderData } from './MazeBuilder';
 
-function tileKey(x: number, y: number): string {
-  return `${x},${y}`;
-}
-
 function opacityForCell(cell: MazeCell): number {
   if (cell.currentlyVisible) {
     return 1;
@@ -44,7 +40,7 @@ export class FogRenderer {
   }
 
   private applyTile(cell: MazeCell, renderData: MazeRenderData): void {
-    const visuals = renderData.tileVisuals.get(tileKey(cell.x, cell.y));
+    const visuals = renderData.tileVisuals[cell.y]?.[cell.x];
 
     if (!visuals) {
       return;

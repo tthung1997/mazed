@@ -3,18 +3,14 @@ import type { MazeInstance, MazeCell } from '../maze/MazeTypes';
 
 export interface MazeRenderData {
   root: THREE.Group;
-  tileVisuals: Map<string, {
+  tileVisuals: Array<Array<{
     floor?: THREE.Object3D;
     floorMaterials?: THREE.MeshStandardMaterial[];
     wall?: THREE.Object3D;
     wallMaterials?: THREE.MeshStandardMaterial[];
-  }>;
+  }>>;
   exitMarker: THREE.Mesh;
   exitVisual?: THREE.Object3D;
-}
-
-function tileKey(x: number, y: number): string {
-  return `${x},${y}`;
 }
 
 function freezeStaticTransform(object: THREE.Object3D): void {
@@ -30,12 +26,14 @@ export class MazeBuilder {
     const floorGeometry = new THREE.BoxGeometry(1, 0.12, 1);
     const wallGeometry = new THREE.BoxGeometry(1, 1, 1);
 
-    const tileVisuals = new Map<string, {
-      floor?: THREE.Object3D;
-      floorMaterials?: THREE.MeshStandardMaterial[];
-      wall?: THREE.Object3D;
-      wallMaterials?: THREE.MeshStandardMaterial[];
-    }>();
+    const tileVisuals: MazeRenderData['tileVisuals'] = Array.from({ length: maze.height }, () =>
+      Array.from({ length: maze.width }, () => ({
+        floor: undefined,
+        floorMaterials: undefined,
+        wall: undefined,
+        wallMaterials: undefined,
+      })),
+    );
 
     for (let y = 0; y < maze.height; y += 1) {
       for (let x = 0; x < maze.width; x += 1) {
@@ -54,7 +52,7 @@ export class MazeBuilder {
           root.add(visuals.wall);
         }
 
-        tileVisuals.set(tileKey(x, y), visuals);
+        tileVisuals[y][x] = visuals;
       }
     }
 
