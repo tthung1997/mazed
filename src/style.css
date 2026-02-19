@@ -104,12 +104,29 @@ body,
   top: 10px;
   left: 10px;
   display: inline-flex;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   padding: 10px 12px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.2);
   font-size: 13px;
+}
+
+.hud-status {
+  line-height: 1.2;
+}
+
+.hud-portal {
+  display: inline-block;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.28);
+  border: 1px solid rgba(103, 232, 249, 0.45);
+  font-size: 12px;
+  line-height: 1.15;
+  color: #e0f7ff;
 }
 
 .perf-hud {

@@ -29,6 +29,7 @@ const FLOOR_TILE_HEIGHT = 0.04;
 const WALL_TILE_HEIGHT = 1.2;
 const PERF_UPDATE_INTERVAL_SECONDS = 0.5;
 const PERF_SAMPLE_WINDOW = 180;
+const PORTAL_HINT_DISTANCE = 1.05;
 
 type PortalDirection = 'forward' | 'backward';
 type MazeSpawnPoint = 'entry' | 'exit';
@@ -176,6 +177,7 @@ export class GameApp {
     this.fadeEl.style.opacity = `${fade}`;
 
     if (this.state.runStatus !== 'playing' || !this.state.maze) {
+      this.hud.setPortalHint(null);
       return;
     }
 
@@ -213,6 +215,7 @@ export class GameApp {
       this.startMazeTransition('backward');
     }
 
+    this.hud.setPortalHint(this.getPortalHintText());
     this.hud.update(this.state);
   };
 
@@ -894,5 +897,25 @@ export class GameApp {
       cloned.emissiveIntensity = emissiveIntensity;
       node.material = cloned;
     });
+  }
+
+  private getPortalHintText(): string | null {
+    if (!this.mazeRenderData) {
+      return null;
+    }
+
+    const exitDistance = this.player.position.distanceTo(this.mazeRenderData.exitMarker.position);
+    const canBacktrack = this.canBacktrackToPreviousMaze();
+    const backDistance = canBacktrack ? this.player.position.distanceTo(this.mazeRenderData.backMarker.position) : Number.POSITIVE_INFINITY;
+
+    if (exitDistance > PORTAL_HINT_DISTANCE && backDistance > PORTAL_HINT_DISTANCE) {
+      return null;
+    }
+
+    if (backDistance < exitDistance) {
+      return `Return Portal • Back to Maze ${Math.max(1, this.state.currentMaze - 1)}`;
+    }
+
+    return `Exit Portal • Advance to Maze ${this.state.currentMaze + 1}`;
   }
 }
