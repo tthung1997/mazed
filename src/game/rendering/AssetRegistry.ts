@@ -99,6 +99,20 @@ export class AssetRegistry {
     return model;
   }
 
+  async loadBackPortalModel(): Promise<THREE.Group> {
+    const gltf = await this.loadGltf(EXIT_PORTAL_URL, 'Failed to load back portal model.');
+    const model = gltf.scene.clone(true);
+
+    model.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
+
+    return model;
+  }
+
   async loadFloorTileModel(): Promise<THREE.Group> {
     const gltf = await this.loadGltf(FLOOR_TILE_URL, 'Failed to load floor tile model.');
     const model = gltf.scene.clone(true);

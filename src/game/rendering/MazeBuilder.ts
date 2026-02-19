@@ -10,7 +10,9 @@ export interface MazeRenderData {
     wallMaterials?: THREE.MeshStandardMaterial[];
   }>>;
   exitMarker: THREE.Mesh;
+  backMarker: THREE.Mesh;
   exitVisual?: THREE.Object3D;
+  backVisual?: THREE.Object3D;
 }
 
 function freezeStaticTransform(object: THREE.Object3D): void {
@@ -67,6 +69,17 @@ export class MazeBuilder {
     freezeStaticTransform(exitMarker);
     root.add(exitMarker);
 
+    const backGeometry = new THREE.CylinderGeometry(0.18, 0.34, 0.35, 12);
+    const backMaterial = new THREE.MeshStandardMaterial({
+      color: '#fef3c7',
+      emissive: '#f59e0b',
+      emissiveIntensity: 0.65,
+    });
+    const backMarker = new THREE.Mesh(backGeometry, backMaterial);
+    backMarker.position.set(maze.entry.x + 0.5, 0.18, maze.entry.y + 0.5);
+    freezeStaticTransform(backMarker);
+    root.add(backMarker);
+
     root.updateMatrix();
     root.matrixAutoUpdate = false;
 
@@ -74,6 +87,7 @@ export class MazeBuilder {
       root,
       tileVisuals,
       exitMarker,
+      backMarker,
     };
   }
 

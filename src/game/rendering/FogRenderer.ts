@@ -39,6 +39,27 @@ export class FogRenderer {
     renderData.exitMarker.visible = exitCell.currentlyVisible;
   }
 
+  applyBackVisibility(maze: MazeInstance, renderData: MazeRenderData, enabled: boolean): void {
+    if (!enabled) {
+      renderData.backMarker.visible = false;
+      if (renderData.backVisual) {
+        renderData.backVisual.visible = false;
+      }
+
+      return;
+    }
+
+    const entryCell = maze.cells[maze.entry.y][maze.entry.x];
+
+    if (renderData.backVisual) {
+      renderData.backMarker.visible = false;
+      renderData.backVisual.visible = entryCell.currentlyVisible;
+      return;
+    }
+
+    renderData.backMarker.visible = entryCell.currentlyVisible;
+  }
+
   private applyTile(cell: MazeCell, renderData: MazeRenderData): void {
     const visuals = renderData.tileVisuals[cell.y]?.[cell.x];
 

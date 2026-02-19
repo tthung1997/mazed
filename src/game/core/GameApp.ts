@@ -30,6 +30,9 @@ const WALL_TILE_HEIGHT = 1.2;
 const PERF_UPDATE_INTERVAL_SECONDS = 0.5;
 const PERF_SAMPLE_WINDOW = 180;
 
+type PortalDirection = 'forward' | 'backward';
+type MazeSpawnPoint = 'entry' | 'exit';
+
 function randomSeed(length: number): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let output = '';
@@ -83,6 +86,8 @@ export class GameApp {
   private perfSampleElapsed = 0;
   private perfSampleFrames = 0;
   private readonly frameTimeSamplesMs: number[] = [];
+  private readonly mazeNetwork = new Map<number, MazeInstance>();
+  private nextMazeSpawnPoint: MazeSpawnPoint = 'entry';
 
   constructor(private readonly mountPoint: HTMLDivElement) {
     this.root = document.createElement('div');
@@ -192,11 +197,20 @@ export class GameApp {
       if (this.mazeRenderData) {
         this.fogRenderer.applyDirty(dirty.changedTiles, this.state.maze.cells, this.mazeRenderData);
         this.fogRenderer.applyExitVisibility(this.state.maze, this.mazeRenderData);
+        this.fogRenderer.applyBackVisibility(this.state.maze, this.mazeRenderData, this.canBacktrackToPreviousMaze());
       }
     }
 
     if (this.mazeRenderData && this.portalSystem.checkExitOverlap(this.player.position, this.mazeRenderData.exitMarker.position)) {
-      this.startMazeTransition();
+      this.startMazeTransition('forward');
+    }
+
+    if (
+      this.mazeRenderData &&
+      this.canBacktrackToPreviousMaze() &&
+      this.portalSystem.checkBackOverlap(this.player.position, this.mazeRenderData.backMarker.position)
+    ) {
+      this.startMazeTransition('backward');
     }
 
     this.hud.update(this.state);
@@ -220,6 +234,8 @@ export class GameApp {
     this.state.artifactsMask = 0;
     this.state.inventory = [];
     this.state.playtimeSeconds = 0;
+    this.mazeNetwork.clear();
+    this.nextMazeSpawnPoint = 'entry';
     this.buildMaze();
     this.state.runStatus = 'playing';
     this.hud.setVisible(true);
@@ -228,8 +244,9 @@ export class GameApp {
   }
 
   private buildMaze(): void {
-    const params = getMazeParams(this.state.playerSeed, this.state.currentMaze);
-    const maze = this.mazeGenerator.generate(params);
+    const cachedMaze = this.mazeNetwork.get(this.state.currentMaze);
+    const maze = cachedMaze ?? this.mazeGenerator.generate(getMazeParams(this.state.playerSeed, this.state.currentMaze));
+    this.mazeNetwork.set(this.state.currentMaze, maze);
     this.state.maze = maze;
     this.mazeBuildVersion += 1;
     const buildVersion = this.mazeBuildVersion;
@@ -245,29 +262,51 @@ export class GameApp {
     this.sceneManager.scene.add(this.mazeRenderData.root);
     void this.applyTileModels(this.mazeRenderData, maze, buildVersion);
     void this.applyExitPortalVisual(this.mazeRenderData, maze, buildVersion);
+    void this.applyBackPortalVisual(this.mazeRenderData, maze, buildVersion);
 
-    this.player.placeAtTile(maze.entry.x, maze.entry.y);
+    const spawnPoint = this.nextMazeSpawnPoint;
+    const spawnTile = spawnPoint === 'exit' ? maze.exit : maze.entry;
+
+    this.player.placeAtTile(spawnTile.x, spawnTile.y);
     this.playerFacingYaw = 0;
     this.playerModelPivot.rotation.y = this.playerFacingYaw;
     this.syncPlayerVisualPosition();
 
-    this.visibilitySystem.update({ x: maze.entry.x, y: maze.entry.y }, maze, this.visibilityRadius);
+    this.visibilitySystem.update({ x: spawnTile.x, y: spawnTile.y }, maze, this.visibilityRadius);
     this.fogRenderer.applyFull(maze, this.mazeRenderData);
     this.fogRenderer.applyExitVisibility(maze, this.mazeRenderData);
+    this.fogRenderer.applyBackVisibility(maze, this.mazeRenderData, this.canBacktrackToPreviousMaze());
+
+    if (spawnPoint === 'exit') {
+      this.portalSystem.prime('forward');
+    }
+
+    if (spawnPoint === 'entry' && this.canBacktrackToPreviousMaze()) {
+      this.portalSystem.prime('backward');
+    }
+
+    this.nextMazeSpawnPoint = 'entry';
   }
 
-  private startMazeTransition(): void {
+  private startMazeTransition(direction: PortalDirection): void {
     if (this.state.runStatus !== 'playing') {
       return;
     }
 
     this.state.runStatus = 'transition';
-    const completedMaze = this.state.currentMaze;
+    const currentMaze = this.state.currentMaze;
 
     this.transition.start(
       () => {
-        this.state.completedMazes.push(completedMaze);
-        this.state.currentMaze += 1;
+        if (direction === 'forward') {
+          this.addCompletedMaze(currentMaze);
+          this.state.currentMaze += 1;
+          this.nextMazeSpawnPoint = 'entry';
+        } else {
+          this.state.currentMaze = Math.max(1, this.state.currentMaze - 1);
+          this.nextMazeSpawnPoint = 'exit';
+        }
+
         this.buildMaze();
       },
       () => {
@@ -322,7 +361,7 @@ export class GameApp {
       currentMaze: this.state.currentMaze,
       unlockedTools: this.state.unlockedToolsMask,
       inventory: this.state.inventory,
-      completedMazes: this.state.completedMazes,
+      completedMazes: [...this.state.completedMazes],
       artifacts: this.state.artifactsMask,
       playtime: Math.floor(this.state.playtimeSeconds),
     };
@@ -344,9 +383,11 @@ export class GameApp {
     this.state.currentMaze = payload.currentMaze;
     this.state.unlockedToolsMask = payload.unlockedTools;
     this.state.inventory = payload.inventory;
-    this.state.completedMazes = payload.completedMazes;
+    this.state.completedMazes = [...new Set(payload.completedMazes)].sort((a, b) => a - b);
     this.state.artifactsMask = payload.artifacts;
     this.state.playtimeSeconds = payload.playtime;
+    this.mazeNetwork.clear();
+    this.nextMazeSpawnPoint = 'entry';
 
     this.buildMaze();
     this.state.runStatus = 'playing';
@@ -635,6 +676,7 @@ export class GameApp {
 
       this.fogRenderer.applyFull(maze, renderData);
       this.fogRenderer.applyExitVisibility(maze, renderData);
+      this.fogRenderer.applyBackVisibility(maze, renderData, this.canBacktrackToPreviousMaze());
     } catch (error) {
       console.warn('Failed to load tile models. Keeping fallback tile meshes.', error);
     }
@@ -649,6 +691,7 @@ export class GameApp {
       }
 
       this.fitExitPortalModel(model);
+      this.tintPortalModel(model, '#9be7ff', '#4fc3f7', 0.28);
       model.position.set(renderData.exitMarker.position.x, 0, renderData.exitMarker.position.z);
       this.freezeStaticTransformRecursive(model);
 
@@ -748,5 +791,108 @@ export class GameApp {
     });
 
     object.updateMatrixWorld(true);
+  }
+
+  private canBacktrackToPreviousMaze(): boolean {
+    if (this.state.currentMaze <= 1) {
+      return false;
+    }
+
+    return this.state.completedMazes.includes(this.state.currentMaze - 1);
+  }
+
+  private addCompletedMaze(mazeNumber: number): void {
+    if (!this.state.completedMazes.includes(mazeNumber)) {
+      this.state.completedMazes.push(mazeNumber);
+      this.state.completedMazes.sort((a, b) => a - b);
+    }
+  }
+
+  private async applyBackPortalVisual(
+    renderData: MazeRenderData,
+    maze: { entry: { x: number; y: number }; cells: Array<Array<{ currentlyVisible: boolean }> > },
+    buildVersion: number,
+  ): Promise<void> {
+    try {
+      const model = await this.assets.loadBackPortalModel();
+
+      if (buildVersion !== this.mazeBuildVersion || this.mazeRenderData !== renderData) {
+        return;
+      }
+
+      this.fitBackPortalModel(model);
+      this.tintPortalModel(model, '#fcd34d', '#f59e0b', 0.34);
+      model.position.set(renderData.backMarker.position.x, 0, renderData.backMarker.position.z);
+      this.freezeStaticTransformRecursive(model);
+
+      if (renderData.backVisual) {
+        renderData.root.remove(renderData.backVisual);
+      }
+
+      renderData.root.add(model);
+      renderData.backVisual = model;
+
+      const showBackPortal = this.canBacktrackToPreviousMaze();
+      const entryCell = maze.cells[maze.entry.y][maze.entry.x];
+      renderData.backMarker.visible = false;
+      renderData.backVisual.visible = showBackPortal && entryCell.currentlyVisible;
+    } catch (error) {
+      console.warn('Failed to load back portal model. Keeping fallback back marker.', error);
+    }
+  }
+
+  private fitBackPortalModel(model: THREE.Object3D): void {
+    model.position.set(0, 0, 0);
+    model.updateWorldMatrix(true, true);
+
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+
+    if (size.y > 0) {
+      const targetHeight = 0.85;
+      const scale = targetHeight / size.y;
+      model.scale.setScalar(scale);
+    }
+
+    model.updateWorldMatrix(true, true);
+    const scaledBounds = new THREE.Box3().setFromObject(model);
+    const center = scaledBounds.getCenter(new THREE.Vector3());
+    const minY = scaledBounds.min.y;
+
+    model.position.set(-center.x, -minY, -center.z);
+  }
+
+  private tintPortalModel(model: THREE.Object3D, _color: string, emissive: string, emissiveIntensity: number): void {
+    model.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) {
+        return;
+      }
+
+      if (Array.isArray(node.material)) {
+        node.material = node.material.map((material) => {
+          if (!(material instanceof THREE.MeshStandardMaterial)) {
+            return material;
+          }
+
+          const cloned = material.clone();
+          cloned.color.copy(material.color);
+          cloned.emissive.set(emissive);
+          cloned.emissiveIntensity = emissiveIntensity;
+          return cloned;
+        });
+
+        return;
+      }
+
+      if (!(node.material instanceof THREE.MeshStandardMaterial)) {
+        return;
+      }
+
+      const cloned = node.material.clone();
+      cloned.color.copy(node.material.color);
+      cloned.emissive.set(emissive);
+      cloned.emissiveIntensity = emissiveIntensity;
+      node.material = cloned;
+    });
   }
 }
