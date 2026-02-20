@@ -13,6 +13,8 @@ export function createInitialState(): GameState {
     artifactsMask: 0,
     inventory: [],
     playtimeSeconds: 0,
+    mazeFirstEntryTimes: {},
+    mazeFirstCompletionTimes: {},
     runStatus: 'menu',
   };
 }

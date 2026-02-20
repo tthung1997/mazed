@@ -12,5 +12,7 @@ export interface GameState {
   artifactsMask: number;
   inventory: number[];
   playtimeSeconds: number;
+  mazeFirstEntryTimes: Record<number, number>;
+  mazeFirstCompletionTimes: Record<number, number>;
   runStatus: 'menu' | 'playing' | 'transition' | 'paused';
 }

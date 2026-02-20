@@ -38,6 +38,8 @@ describe('SaveCodec', () => {
       completedMazes: [1, 2, 3, 4, 5, 6],
       artifacts: 2,
       playtime: 128,
+      mazeFirstEntryTimes: { 1: 0, 2: 30, 7: 115 },
+      mazeFirstCompletionTimes: { 1: 12, 2: 25, 3: 48 },
     };
 
     const code = SaveCodec.encode(state);
@@ -61,6 +63,8 @@ describe('SaveCodec', () => {
       completedMazes: [1],
       artifacts: 0,
       playtime: 5,
+      mazeFirstEntryTimes: { 1: 0, 2: 5 },
+      mazeFirstCompletionTimes: { 1: 4 },
     };
 
     const validCode = SaveCodec.encode(state);
@@ -91,6 +95,8 @@ describe('SaveCodec', () => {
       completedMazes: [],
       artifacts: 0,
       playtime: 0,
+      mazeFirstEntryTimes: {},
+      mazeFirstCompletionTimes: {},
     });
 
     const decoded = SaveCodec.decode(code);
@@ -118,6 +124,8 @@ describe('SaveCodec', () => {
     expect(decoded.ok).toBe(true);
     if (decoded.ok) {
       expect(decoded.value.playerCharacterId).toBe(DEFAULT_PLAYER_CHARACTER_ID);
+      expect(decoded.value.mazeFirstEntryTimes).toEqual({});
+      expect(decoded.value.mazeFirstCompletionTimes).toEqual({});
     }
   });
 });

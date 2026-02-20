@@ -172,7 +172,10 @@ export class GameApp {
   }
 
   private fixedUpdate = (dt: number): void => {
-    this.state.playtimeSeconds += dt;
+    if (this.state.runStatus === 'playing' || this.state.runStatus === 'transition') {
+      this.state.playtimeSeconds += dt;
+    }
+
     const fade = this.transition.update(dt);
     this.fadeEl.style.opacity = `${fade}`;
 
@@ -237,6 +240,8 @@ export class GameApp {
     this.state.artifactsMask = 0;
     this.state.inventory = [];
     this.state.playtimeSeconds = 0;
+    this.state.mazeFirstEntryTimes = { 1: 0 };
+    this.state.mazeFirstCompletionTimes = {};
     this.mazeNetwork.clear();
     this.nextMazeSpawnPoint = 'entry';
     this.buildMaze();
@@ -270,6 +275,8 @@ export class GameApp {
     const spawnPoint = this.nextMazeSpawnPoint;
     const spawnTile = spawnPoint === 'exit' ? maze.exit : maze.entry;
 
+    this.recordMazeEntryIfFirstVisit(this.state.currentMaze);
+
     this.player.placeAtTile(spawnTile.x, spawnTile.y);
     this.playerFacingYaw = 0;
     this.playerModelPivot.rotation.y = this.playerFacingYaw;
@@ -302,6 +309,7 @@ export class GameApp {
     this.transition.start(
       () => {
         if (direction === 'forward') {
+          this.recordMazeFirstCompletion(currentMaze);
           this.addCompletedMaze(currentMaze);
           this.state.currentMaze += 1;
           this.nextMazeSpawnPoint = 'entry';
@@ -367,6 +375,8 @@ export class GameApp {
       completedMazes: [...this.state.completedMazes],
       artifacts: this.state.artifactsMask,
       playtime: Math.floor(this.state.playtimeSeconds),
+      mazeFirstEntryTimes: { ...this.state.mazeFirstEntryTimes },
+      mazeFirstCompletionTimes: { ...this.state.mazeFirstCompletionTimes },
     };
 
     return SaveCodec.encode(payload);
@@ -389,6 +399,10 @@ export class GameApp {
     this.state.completedMazes = [...new Set(payload.completedMazes)].sort((a, b) => a - b);
     this.state.artifactsMask = payload.artifacts;
     this.state.playtimeSeconds = payload.playtime;
+    this.state.mazeFirstEntryTimes = { ...payload.mazeFirstEntryTimes };
+    this.state.mazeFirstCompletionTimes = { ...payload.mazeFirstCompletionTimes };
+
+    this.recordMazeEntryIfFirstVisit(this.state.currentMaze);
     this.mazeNetwork.clear();
     this.nextMazeSpawnPoint = 'entry';
 
@@ -809,6 +823,24 @@ export class GameApp {
       this.state.completedMazes.push(mazeNumber);
       this.state.completedMazes.sort((a, b) => a - b);
     }
+  }
+
+  private recordMazeEntryIfFirstVisit(mazeNumber: number): void {
+    if (typeof this.state.mazeFirstEntryTimes[mazeNumber] === 'number') {
+      return;
+    }
+
+    this.state.mazeFirstEntryTimes[mazeNumber] = Math.floor(this.state.playtimeSeconds);
+  }
+
+  private recordMazeFirstCompletion(mazeNumber: number): void {
+    if (typeof this.state.mazeFirstCompletionTimes[mazeNumber] === 'number') {
+      return;
+    }
+
+    const firstEntryTime = this.state.mazeFirstEntryTimes[mazeNumber];
+    const completionTime = typeof firstEntryTime === 'number' ? this.state.playtimeSeconds - firstEntryTime : 0;
+    this.state.mazeFirstCompletionTimes[mazeNumber] = Math.max(0, Math.floor(completionTime));
   }
 
   private async applyBackPortalVisual(

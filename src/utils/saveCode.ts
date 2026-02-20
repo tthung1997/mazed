@@ -18,6 +18,30 @@ interface SaveFailure {
 
 export type SaveDecodeResult = SaveSuccess | SaveFailure;
 
+function sanitizeMazeTimingMap(value: unknown): Record<number, number> {
+  if (typeof value !== 'object' || value === null) {
+    return {};
+  }
+
+  const output: Record<number, number> = {};
+
+  for (const [key, rawSeconds] of Object.entries(value)) {
+    const mazeNumber = Number(key);
+
+    if (!Number.isInteger(mazeNumber) || mazeNumber <= 0) {
+      continue;
+    }
+
+    if (typeof rawSeconds !== 'number' || !Number.isFinite(rawSeconds) || rawSeconds < 0) {
+      continue;
+    }
+
+    output[mazeNumber] = Math.floor(rawSeconds);
+  }
+
+  return output;
+}
+
 function bytesToBase62Pairs(bytes: Uint8Array): string {
   let output = '';
 
@@ -134,6 +158,8 @@ export const SaveCodec = {
         completedMazes: value.completedMazes ?? [],
         artifacts: value.artifacts ?? 0,
         playtime: value.playtime ?? 0,
+        mazeFirstEntryTimes: sanitizeMazeTimingMap(value.mazeFirstEntryTimes),
+        mazeFirstCompletionTimes: sanitizeMazeTimingMap(value.mazeFirstCompletionTimes),
       },
     };
   },

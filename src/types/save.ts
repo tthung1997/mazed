@@ -10,6 +10,8 @@ export interface SaveState {
   completedMazes: number[];
   artifacts: number;
   playtime: number;
+  mazeFirstEntryTimes: Record<number, number>;
+  mazeFirstCompletionTimes: Record<number, number>;
 }
 
 export type SaveErrorCode = 'invalid_format' | 'checksum_mismatch' | 'unsupported_version' | 'decode_failed';
