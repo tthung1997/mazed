@@ -1,5 +1,11 @@
 import type { GameState } from '../../types/game';
-import { ITEM_DESCRIPTIONS, ITEM_ORDER, TOOL_ORDER, TOOL_DEFINITIONS } from '../../types/items';
+import {
+  IMPLEMENTED_ITEM_ORDER,
+  IMPLEMENTED_TOOL_ORDER,
+  ITEM_DESCRIPTIONS,
+  TOOL_DEFINITIONS,
+  isImplementedToolId,
+} from '../../types/items';
 
 function formatDuration(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
@@ -86,7 +92,7 @@ export class HudController {
       state.activeToolEndTime === null ? null : Math.max(0, Math.ceil((state.activeToolEndTime - now) / 1000));
 
     const toolLabel =
-      state.activeToolId === null
+      state.activeToolId === null || !isImplementedToolId(state.activeToolId)
         ? 'None'
         : remainingToolSeconds === null
           ? state.activeToolId
@@ -99,7 +105,7 @@ export class HudController {
   }
 
   private renderToolHelp(): string {
-    const toolLines = TOOL_ORDER.map((toolId) => {
+    const toolLines = IMPLEMENTED_TOOL_ORDER.map((toolId) => {
       const tool = TOOL_DEFINITIONS[toolId];
       const durationText = tool.durationMs === null ? 'duration: permanent' : `duration: ${Math.floor(tool.durationMs / 1000)}s`;
       const visibilityText = tool.visibilityBonus !== 0 ? `vis +${tool.visibilityBonus}` : 'vis +0';
@@ -108,7 +114,7 @@ export class HudController {
       return `<div>• ${tool.id}: ${visibilityText}, ${speedText}, ${durationText}, ${consumeText}</div>`;
     });
 
-    const itemLines = ITEM_ORDER.map((itemId) => {
+    const itemLines = IMPLEMENTED_ITEM_ORDER.map((itemId) => {
       return `<div>• ${itemId}: ${ITEM_DESCRIPTIONS[itemId]}</div>`;
     });
 

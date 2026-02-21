@@ -11,6 +11,9 @@ export interface ToolDefinition {
   oneShot: boolean;
 }
 
+export const IMPLEMENTED_TOOL_ORDER: ToolId[] = ['basic_torch', 'running_boots'];
+export const IMPLEMENTED_ITEM_ORDER: ItemId[] = ['maze_shard', 'wayfinder_stone'];
+
 export const TOOL_ORDER: ToolId[] = ['basic_torch', 'compass', 'map_fragment', 'running_boots', 'skeleton_key'];
 
 export const TOOL_DEFINITIONS: Record<ToolId, ToolDefinition> = {
@@ -73,7 +76,7 @@ export function unlockTool(mask: number, toolId: ToolId): number {
 }
 
 export function getToolUnlockedAtMaze(mazeNumber: number): ToolId | null {
-  for (const toolId of TOOL_ORDER) {
+  for (const toolId of IMPLEMENTED_TOOL_ORDER) {
     if (TOOL_DEFINITIONS[toolId].unlockMaze === mazeNumber) {
       return toolId;
     }
@@ -121,3 +124,7 @@ export const ITEM_DISPLAY_NAMES: Record<ItemId | ToolId, string> = {
   running_boots: 'Running Boots',
   skeleton_key: 'Skeleton Key',
 };
+
+export function isImplementedToolId(value: string): value is ToolId {
+  return IMPLEMENTED_TOOL_ORDER.includes(value as ToolId);
+}

@@ -55,7 +55,7 @@ describe('ItemSpawner', () => {
 
   it('spawns unlock tool at its maze when not yet unlocked', () => {
     const generator = new MazeGenerator();
-    const maze = generator.generate(getMazeParams('seed-tool-a', 5));
+    const maze = generator.generate(getMazeParams('seed-tool-a', 15));
     const spawner = new ItemSpawner({ minMaze: 6, maxMaze: 10 });
 
     const spawns = spawner.spawnItems(maze, {
@@ -64,20 +64,20 @@ describe('ItemSpawner', () => {
       unlockedToolsMask: 0,
     });
 
-    expect(spawns.some((spawn) => spawn.itemId === 'compass')).toBe(true);
+    expect(spawns.some((spawn) => spawn.itemId === 'running_boots')).toBe(true);
   });
 
   it('does not spawn unlock tool when already unlocked', () => {
     const generator = new MazeGenerator();
-    const maze = generator.generate(getMazeParams('seed-tool-b', 5));
+    const maze = generator.generate(getMazeParams('seed-tool-b', 15));
     const spawner = new ItemSpawner({ minMaze: 6, maxMaze: 10 });
 
     const spawns = spawner.spawnItems(maze, {
       playerSeed: 'player-seed-4',
       wayfinderCollected: false,
-      unlockedToolsMask: getToolBit('compass'),
+      unlockedToolsMask: getToolBit('running_boots'),
     });
 
-    expect(spawns.some((spawn) => spawn.itemId === 'compass')).toBe(false);
+    expect(spawns.some((spawn) => spawn.itemId === 'running_boots')).toBe(false);
   });
 });

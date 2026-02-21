@@ -1,5 +1,6 @@
 import type { SaveError, SaveState } from '../types/save';
 import type { ToolId } from '../types/items';
+import { isImplementedToolId } from '../types/items';
 import { makeChecksum } from './checksum';
 import { DEFAULT_PLAYER_CHARACTER_ID, isPlayerCharacterId } from '../game/rendering/AssetRegistry';
 
@@ -116,8 +117,7 @@ function sanitizeToolId(value: unknown): ToolId | null {
     return null;
   }
 
-  const allowed: ToolId[] = ['basic_torch', 'compass', 'map_fragment', 'running_boots', 'skeleton_key'];
-  return allowed.includes(value as ToolId) ? (value as ToolId) : null;
+  return isImplementedToolId(value) ? value : null;
 }
 
 function migrateSaveState(value: Partial<SaveState> & { version?: number }): SaveState | null {

@@ -1,6 +1,6 @@
 import type { MazeInstance } from './MazeTypes';
 import type { MazeItemSpawn, WayfinderConfig } from '../../types/items';
-import { getToolUnlockedAtMaze, hasToolUnlocked, TOOL_ORDER } from '../../types/items';
+import { getToolUnlockedAtMaze, hasToolUnlocked } from '../../types/items';
 import { SeededRandom } from '../../utils/random';
 import { WAYFINDER_MAZE_RANGE_MAX, WAYFINDER_MAZE_RANGE_MIN } from '../core/constants';
 
@@ -172,24 +172,27 @@ export class ItemSpawner {
     const unlockToolId = getToolUnlockedAtMaze(maze.mazeNumber);
     const toolDropOrder = unlockToolId ? [unlockToolId] : [];
 
-    if (deadEnds.length > 0) {
-      const sortedCandidates = [...deadEnds].sort(
-        (a, b) => distanceSquared(b, maze.entry) - distanceSquared(a, maze.entry),
-      );
+    const sortedDeadEnds = [...deadEnds].sort(
+      (a, b) => distanceSquared(b, maze.entry) - distanceSquared(a, maze.entry),
+    );
+    const sortedPassable = [...passableTiles].sort(
+      (a, b) => distanceSquared(b, maze.entry) - distanceSquared(a, maze.entry),
+    );
 
-      for (const toolId of toolDropOrder) {
-        if (hasToolUnlocked(unlockedMask, toolId)) {
-          continue;
-        }
-
-        const candidate = sortedCandidates.find((tile) => !occupiedTiles.has(makeTileKey(tile)));
-
-        if (!candidate) {
-          break;
-        }
-
-        addSpawn(toolId, candidate);
+    for (const toolId of toolDropOrder) {
+      if (hasToolUnlocked(unlockedMask, toolId)) {
+        continue;
       }
+
+      const candidate =
+        sortedDeadEnds.find((tile) => !occupiedTiles.has(makeTileKey(tile))) ??
+        sortedPassable.find((tile) => !occupiedTiles.has(makeTileKey(tile)));
+
+      if (!candidate) {
+        break;
+      }
+
+      addSpawn(toolId, candidate);
     }
 
     const shouldSpawnWayfinder =

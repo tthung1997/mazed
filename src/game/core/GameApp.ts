@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { GameState } from '../../types/game';
 import type { SaveState } from '../../types/save';
 import type { MazeItemState } from '../../types/items';
-import { isToolId, unlockTool } from '../../types/items';
+import { isImplementedToolId, unlockTool } from '../../types/items';
 import { SaveCodec } from '../../utils/saveCode';
 import { getMazeParams } from '../maze/Difficulty';
 import { MazeGenerator } from '../maze/MazeGenerator';
@@ -1100,7 +1100,7 @@ export class GameApp {
       this.state.portalHubUnlocked = true;
     }
 
-    if (isToolId(event.itemId)) {
+    if (isImplementedToolId(event.itemId)) {
       this.state.unlockedToolsMask = unlockTool(this.state.unlockedToolsMask, event.itemId);
       this.toolSystem.equip(event.itemId);
       this.state.activeToolId = this.toolSystem.getActiveToolId();
