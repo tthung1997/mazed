@@ -4,3 +4,5 @@ export const PLAYER_RADIUS = 0.25;
 export const TILE_SIZE = 1;
 export const BASE_VISIBILITY_RADIUS = 3;
 export const TRANSITION_DURATION_MS = 700;
+export const WAYFINDER_MAZE_RANGE_MIN = 6;
+export const WAYFINDER_MAZE_RANGE_MAX = 10;

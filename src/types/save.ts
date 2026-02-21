@@ -1,4 +1,5 @@
 import type { PlayerCharacterId } from '../game/rendering/AssetRegistry';
+import type { ToolId } from './items';
 
 export interface SaveState {
   version: number;
@@ -12,6 +13,11 @@ export interface SaveState {
   playtime: number;
   mazeFirstEntryTimes: Record<number, number>;
   mazeFirstCompletionTimes: Record<number, number>;
+  activeToolId: ToolId | null;
+  activeToolExpiry: number | null;
+  collectedShards: number;
+  pickedUpItems: Record<string, string[]>;
+  portalHubUnlocked: boolean;
 }
 
 export type SaveErrorCode = 'invalid_format' | 'checksum_mismatch' | 'unsupported_version' | 'decode_failed';

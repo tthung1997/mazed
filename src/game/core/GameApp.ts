@@ -1,21 +1,28 @@
 import * as THREE from 'three';
 import type { GameState } from '../../types/game';
 import type { SaveState } from '../../types/save';
+import type { MazeItemState } from '../../types/items';
+import { isToolId, unlockTool } from '../../types/items';
 import { SaveCodec } from '../../utils/saveCode';
 import { getMazeParams } from '../maze/Difficulty';
 import { MazeGenerator } from '../maze/MazeGenerator';
+import { ItemSpawner } from '../maze/ItemSpawner';
 import { PlayerInput } from '../player/PlayerInput';
 import { PlayerController } from '../player/PlayerController';
 import { CameraController } from '../rendering/CameraController';
 import { FogRenderer } from '../rendering/FogRenderer';
+import { ItemMeshBuilder, type ItemRenderData } from '../rendering/ItemMeshBuilder';
 import { MazeBuilder, type MazeRenderData } from '../rendering/MazeBuilder';
 import { SceneManager } from '../rendering/SceneManager';
 import { AssetRegistry, type PlayerCharacterId } from '../rendering/AssetRegistry';
 import type { MazeInstance } from '../maze/MazeTypes';
 import { HudController } from '../ui/HudController';
 import { MenuController } from '../ui/MenuController';
+import { PortalHubModal } from '../ui/PortalHubModal';
 import { SaveCodeModal } from '../ui/SaveCodeModal';
+import { ItemSystem, type ItemPickupEvent } from '../systems/ItemSystem';
 import { PortalSystem } from '../systems/PortalSystem';
+import { ToolSystem } from '../systems/ToolSystem';
 import { VisibilitySystem } from '../systems/VisibilitySystem';
 import { createInitialState } from './GameState';
 import { BASE_VISIBILITY_RADIUS, PLAYER_SPEED, TRANSITION_DURATION_MS } from './constants';
@@ -30,6 +37,7 @@ const WALL_TILE_HEIGHT = 1.2;
 const PERF_UPDATE_INTERVAL_SECONDS = 0.5;
 const PERF_SAMPLE_WINDOW = 180;
 const PORTAL_HINT_DISTANCE = 1.05;
+const ITEM_LABEL_DISTANCE = 1.2;
 
 type PortalDirection = 'forward' | 'backward';
 type MazeSpawnPoint = 'entry' | 'exit';
@@ -61,19 +69,25 @@ export class GameApp {
   private readonly portalSystem = new PortalSystem();
   private readonly transition = new TransitionSystem(TRANSITION_DURATION_MS);
   private readonly mazeGenerator = new MazeGenerator();
+  private readonly itemSpawner = new ItemSpawner();
   private readonly mazeBuilder = new MazeBuilder();
+  private readonly itemMeshBuilder = new ItemMeshBuilder();
   private readonly fogRenderer = new FogRenderer();
   private readonly assets = new AssetRegistry();
+  private readonly itemSystem = new ItemSystem();
+  private readonly toolSystem = new ToolSystem();
 
   private readonly playerVisual: THREE.Group;
   private readonly playerModelPivot: THREE.Group;
   private readonly hud: HudController;
   private readonly menus: MenuController;
   private readonly saveModal: SaveCodeModal;
+  private readonly portalHubModal: PortalHubModal;
   private readonly perfHudEnabled = import.meta.env.DEV;
   private readonly perfHudEl: HTMLDivElement | null = null;
 
   private mazeRenderData: MazeRenderData | null = null;
+  private itemRenderData: ItemRenderData | null = null;
   private previousPlayerTile = { x: -1, y: -1 };
   private visibilityRadius = BASE_VISIBILITY_RADIUS;
   private mazeBuildVersion = 0;
@@ -89,6 +103,7 @@ export class GameApp {
   private readonly frameTimeSamplesMs: number[] = [];
   private readonly mazeNetwork = new Map<number, MazeInstance>();
   private nextMazeSpawnPoint: MazeSpawnPoint = 'entry';
+  private portalHubOpen = false;
 
   constructor(private readonly mountPoint: HTMLDivElement) {
     this.root = document.createElement('div');
@@ -133,6 +148,8 @@ export class GameApp {
       (code) => this.loadFromCode(code),
       () => this.closeSaveModal(),
     );
+
+    this.portalHubModal = new PortalHubModal(this.overlay);
 
     if (this.perfHudEnabled) {
       this.perfHudEl = this.createPerfHud();
@@ -184,8 +201,16 @@ export class GameApp {
       return;
     }
 
+    const expiredTool = this.toolSystem.update(dt * 1000);
+    if (expiredTool) {
+      this.state.activeToolId = null;
+      this.state.activeToolEndTime = null;
+    }
+
+    this.visibilityRadius = BASE_VISIBILITY_RADIUS + this.toolSystem.getVisibilityBonus();
+
     const moveInput = this.input.getMovementVector();
-    this.player.update(moveInput, dt, this.state.maze);
+    this.player.update(moveInput, dt, this.state.maze, this.toolSystem.getSpeedMultiplier());
     this.updatePlayerAnimation(dt);
     this.updatePlayerFacing(dt);
     this.syncPlayerVisualPosition();
@@ -204,6 +229,21 @@ export class GameApp {
         this.fogRenderer.applyExitVisibility(this.state.maze, this.mazeRenderData);
         this.fogRenderer.applyBackVisibility(this.state.maze, this.mazeRenderData, this.canBacktrackToPreviousMaze());
       }
+
+      if (this.itemRenderData) {
+        this.itemMeshBuilder.applyDirtyVisibility(this.itemRenderData, this.state.maze, dirty.changedTiles);
+      }
+    }
+
+    const itemEvents = this.itemSystem.update(tile);
+    if (itemEvents.length > 0) {
+      for (const event of itemEvents) {
+        this.handleItemPickup(event);
+      }
+    }
+
+    if (this.itemRenderData) {
+      this.itemMeshBuilder.updateProximityLabels(this.itemRenderData, this.player.position, ITEM_LABEL_DISTANCE);
     }
 
     if (this.mazeRenderData && this.portalSystem.checkExitOverlap(this.player.position, this.mazeRenderData.exitMarker.position)) {
@@ -215,7 +255,11 @@ export class GameApp {
       this.canBacktrackToPreviousMaze() &&
       this.portalSystem.checkBackOverlap(this.player.position, this.mazeRenderData.backMarker.position)
     ) {
-      this.startMazeTransition('backward');
+      if (this.state.portalHubUnlocked) {
+        void this.openPortalHub();
+      } else {
+        this.startMazeTransition('backward');
+      }
     }
 
     this.hud.setPortalHint(this.getPortalHintText());
@@ -242,6 +286,12 @@ export class GameApp {
     this.state.playtimeSeconds = 0;
     this.state.mazeFirstEntryTimes = { 1: 0 };
     this.state.mazeFirstCompletionTimes = {};
+    this.state.activeToolId = null;
+    this.state.activeToolEndTime = null;
+    this.state.collectedShards = 0;
+    this.state.mazeItemState = {};
+    this.state.portalHubUnlocked = false;
+    this.toolSystem.syncFromState(this.state.activeToolId, this.state.activeToolEndTime);
     this.mazeNetwork.clear();
     this.nextMazeSpawnPoint = 'entry';
     this.buildMaze();
@@ -255,6 +305,11 @@ export class GameApp {
     const cachedMaze = this.mazeNetwork.get(this.state.currentMaze);
     const maze = cachedMaze ?? this.mazeGenerator.generate(getMazeParams(this.state.playerSeed, this.state.currentMaze));
     this.mazeNetwork.set(this.state.currentMaze, maze);
+
+    const mazeState = this.getOrCreateMazeItemState(this.state.currentMaze, maze);
+    const pickedUpSet = new Set(mazeState.pickedUp);
+    maze.itemSpawns = mazeState.spawns.filter((spawn) => !pickedUpSet.has(spawn.id));
+
     this.state.maze = maze;
     this.mazeBuildVersion += 1;
     const buildVersion = this.mazeBuildVersion;
@@ -267,6 +322,9 @@ export class GameApp {
     }
 
     this.mazeRenderData = this.mazeBuilder.build(maze);
+    this.itemSystem.loadMaze(maze);
+    this.itemRenderData = this.itemMeshBuilder.build(this.itemSystem.getSpawns());
+    this.mazeRenderData.root.add(this.itemRenderData.root);
     this.sceneManager.scene.add(this.mazeRenderData.root);
     void this.applyTileModels(this.mazeRenderData, maze, buildVersion);
     void this.applyExitPortalVisual(this.mazeRenderData, maze, buildVersion);
@@ -287,6 +345,10 @@ export class GameApp {
     this.fogRenderer.applyExitVisibility(maze, this.mazeRenderData);
     this.fogRenderer.applyBackVisibility(maze, this.mazeRenderData, this.canBacktrackToPreviousMaze());
 
+    if (this.itemRenderData) {
+      this.itemMeshBuilder.applyFullVisibility(this.itemRenderData, maze);
+    }
+
     if (spawnPoint === 'exit') {
       this.portalSystem.prime('forward');
     }
@@ -298,7 +360,7 @@ export class GameApp {
     this.nextMazeSpawnPoint = 'entry';
   }
 
-  private startMazeTransition(direction: PortalDirection): void {
+  private startMazeTransition(direction: PortalDirection, targetMaze?: number): void {
     if (this.state.runStatus !== 'playing') {
       return;
     }
@@ -314,7 +376,9 @@ export class GameApp {
           this.state.currentMaze += 1;
           this.nextMazeSpawnPoint = 'entry';
         } else {
-          this.state.currentMaze = Math.max(1, this.state.currentMaze - 1);
+          const fallbackMaze = this.state.currentMaze - 1;
+          const selectedMaze = typeof targetMaze === 'number' ? targetMaze : fallbackMaze;
+          this.state.currentMaze = Math.max(1, selectedMaze);
           this.nextMazeSpawnPoint = 'exit';
         }
 
@@ -365,8 +429,10 @@ export class GameApp {
   }
 
   private createSaveCode(): string {
+    const pickedUpItems = this.serializePickedUpItems();
+
     const payload: SaveState = {
-      version: 1,
+      version: 2,
       seed: this.state.playerSeed,
       playerCharacterId: this.state.playerCharacterId,
       currentMaze: this.state.currentMaze,
@@ -377,6 +443,11 @@ export class GameApp {
       playtime: Math.floor(this.state.playtimeSeconds),
       mazeFirstEntryTimes: { ...this.state.mazeFirstEntryTimes },
       mazeFirstCompletionTimes: { ...this.state.mazeFirstCompletionTimes },
+      activeToolId: this.state.activeToolId,
+      activeToolExpiry: this.state.activeToolEndTime,
+      collectedShards: this.state.collectedShards,
+      pickedUpItems,
+      portalHubUnlocked: this.state.portalHubUnlocked,
     };
 
     return SaveCodec.encode(payload);
@@ -401,6 +472,24 @@ export class GameApp {
     this.state.playtimeSeconds = payload.playtime;
     this.state.mazeFirstEntryTimes = { ...payload.mazeFirstEntryTimes };
     this.state.mazeFirstCompletionTimes = { ...payload.mazeFirstCompletionTimes };
+    this.state.activeToolId = payload.activeToolId;
+    this.state.activeToolEndTime = payload.activeToolExpiry;
+    this.state.collectedShards = payload.collectedShards;
+    this.state.portalHubUnlocked = payload.portalHubUnlocked;
+    this.toolSystem.syncFromState(this.state.activeToolId, this.state.activeToolEndTime);
+    this.state.mazeItemState = {};
+
+    for (const [mazeNumber, pickedUp] of Object.entries(payload.pickedUpItems)) {
+      const parsedMazeNumber = Number(mazeNumber);
+      if (!Number.isInteger(parsedMazeNumber) || parsedMazeNumber < 1) {
+        continue;
+      }
+
+      this.state.mazeItemState[parsedMazeNumber] = {
+        spawns: [],
+        pickedUp: [...pickedUp],
+      };
+    }
 
     this.recordMazeEntryIfFirstVisit(this.state.currentMaze);
     this.mazeNetwork.clear();
@@ -421,6 +510,10 @@ export class GameApp {
   };
 
   private handleGlobalKeyDown = (event: KeyboardEvent): void => {
+    if (this.portalHubOpen) {
+      return;
+    }
+
     if (this.perfHudEnabled && event.code === 'F3') {
       event.preventDefault();
       this.setPerfHudVisible(!this.perfHudVisible);
@@ -945,9 +1038,110 @@ export class GameApp {
     }
 
     if (backDistance < exitDistance) {
+      if (this.state.portalHubUnlocked) {
+        return 'Return Portal • Hub Access';
+      }
+
       return `Return Portal • Back to Maze ${Math.max(1, this.state.currentMaze - 1)}`;
     }
 
     return `Exit Portal • Advance to Maze ${this.state.currentMaze + 1}`;
+  }
+
+  private getOrCreateMazeItemState(mazeNumber: number, maze: MazeInstance): MazeItemState {
+    const existing = this.state.mazeItemState[mazeNumber];
+    if (existing && existing.spawns.length > 0) {
+      return existing;
+    }
+
+    const pickedUp = existing?.pickedUp ?? [];
+    const spawns = this.itemSpawner.spawnItems(maze, {
+      playerSeed: this.state.playerSeed,
+      wayfinderCollected: this.state.portalHubUnlocked,
+      unlockedToolsMask: this.state.unlockedToolsMask,
+    });
+
+    const created: MazeItemState = {
+      spawns,
+      pickedUp: [...pickedUp],
+    };
+
+    this.state.mazeItemState[mazeNumber] = created;
+    return created;
+  }
+
+  private serializePickedUpItems(): Record<string, string[]> {
+    const payload: Record<string, string[]> = {};
+
+    for (const [mazeNumber, state] of Object.entries(this.state.mazeItemState)) {
+      if (!state || state.pickedUp.length === 0) {
+        continue;
+      }
+
+      payload[mazeNumber] = [...new Set(state.pickedUp)];
+    }
+
+    return payload;
+  }
+
+  private handleItemPickup(event: ItemPickupEvent): void {
+    const mazeNumber = this.state.currentMaze;
+    const mazeState = this.state.mazeItemState[mazeNumber];
+
+    if (mazeState && !mazeState.pickedUp.includes(event.spawnId)) {
+      mazeState.pickedUp.push(event.spawnId);
+    }
+
+    if (event.itemId === 'maze_shard') {
+      this.state.collectedShards += 1;
+    }
+
+    if (event.itemId === 'wayfinder_stone') {
+      this.state.portalHubUnlocked = true;
+    }
+
+    if (isToolId(event.itemId)) {
+      this.state.unlockedToolsMask = unlockTool(this.state.unlockedToolsMask, event.itemId);
+      this.toolSystem.equip(event.itemId);
+      this.state.activeToolId = this.toolSystem.getActiveToolId();
+      this.state.activeToolEndTime = this.toolSystem.getActiveToolEndTime();
+    }
+
+    if (this.state.maze?.itemSpawns) {
+      this.state.maze.itemSpawns = this.state.maze.itemSpawns.filter((spawn) => spawn.id !== event.spawnId);
+    }
+
+    if (this.itemRenderData) {
+      this.itemMeshBuilder.removeSpawn(this.itemRenderData, event.spawnId);
+    }
+  }
+
+  private async openPortalHub(): Promise<void> {
+    if (this.portalHubOpen || this.state.runStatus !== 'playing') {
+      return;
+    }
+
+    this.portalHubOpen = true;
+    this.state.runStatus = 'paused';
+
+    try {
+      const selectedMaze = await this.portalHubModal.show(
+        this.state.completedMazes,
+        this.state.mazeFirstCompletionTimes,
+        this.state.mazeItemState,
+      );
+
+      this.portalSystem.prime('backward');
+
+      if (selectedMaze === null) {
+        this.state.runStatus = 'playing';
+        return;
+      }
+
+      this.state.runStatus = 'playing';
+      this.startMazeTransition('backward', selectedMaze);
+    } finally {
+      this.portalHubOpen = false;
+    }
   }
 }

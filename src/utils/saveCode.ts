@@ -1,10 +1,15 @@
 import type { SaveError, SaveState } from '../types/save';
+import type { ToolId } from '../types/items';
 import { makeChecksum } from './checksum';
 import { DEFAULT_PLAYER_CHARACTER_ID, isPlayerCharacterId } from '../game/rendering/AssetRegistry';
 
 const PREFIX = 'MAZED';
-const VERSION = 1;
+const VERSION = 2;
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+type LegacySaveStateV1 = Omit<SaveState, 'version' | 'activeToolId' | 'activeToolExpiry' | 'collectedShards' | 'pickedUpItems' | 'portalHubUnlocked'> & {
+  version: 1;
+};
 
 interface SaveSuccess {
   ok: true;
@@ -85,6 +90,84 @@ function invalid(message: string, code: SaveError['code']): SaveFailure {
   };
 }
 
+function sanitizePickedUpItems(value: unknown): Record<string, string[]> {
+  if (typeof value !== 'object' || value === null) {
+    return {};
+  }
+
+  const output: Record<string, string[]> = {};
+
+  for (const [maze, ids] of Object.entries(value)) {
+    if (!Array.isArray(ids)) {
+      continue;
+    }
+
+    const sanitized = ids.filter((id): id is string => typeof id === 'string');
+    if (sanitized.length > 0) {
+      output[maze] = sanitized;
+    }
+  }
+
+  return output;
+}
+
+function sanitizeToolId(value: unknown): ToolId | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const allowed: ToolId[] = ['basic_torch', 'compass', 'map_fragment', 'running_boots', 'skeleton_key'];
+  return allowed.includes(value as ToolId) ? (value as ToolId) : null;
+}
+
+function migrateSaveState(value: Partial<SaveState> & { version?: number }): SaveState | null {
+  if (typeof value.seed !== 'string' || typeof value.currentMaze !== 'number') {
+    return null;
+  }
+
+  if (value.version !== 1 && value.version !== 2) {
+    return null;
+  }
+
+  const base = {
+    seed: value.seed,
+    playerCharacterId:
+      typeof value.playerCharacterId === 'string' && isPlayerCharacterId(value.playerCharacterId)
+        ? value.playerCharacterId
+        : DEFAULT_PLAYER_CHARACTER_ID,
+    currentMaze: value.currentMaze,
+    unlockedTools: value.unlockedTools ?? 0,
+    inventory: value.inventory ?? [],
+    completedMazes: value.completedMazes ?? [],
+    artifacts: value.artifacts ?? 0,
+    playtime: value.playtime ?? 0,
+    mazeFirstEntryTimes: sanitizeMazeTimingMap(value.mazeFirstEntryTimes),
+    mazeFirstCompletionTimes: sanitizeMazeTimingMap(value.mazeFirstCompletionTimes),
+  };
+
+  if (value.version === 1) {
+    return {
+      version: VERSION,
+      ...base,
+      activeToolId: null,
+      activeToolExpiry: null,
+      collectedShards: 0,
+      pickedUpItems: {},
+      portalHubUnlocked: false,
+    };
+  }
+
+  return {
+    version: VERSION,
+    ...base,
+    activeToolId: sanitizeToolId(value.activeToolId),
+    activeToolExpiry: typeof value.activeToolExpiry === 'number' && Number.isFinite(value.activeToolExpiry) ? Math.floor(value.activeToolExpiry) : null,
+    collectedShards: typeof value.collectedShards === 'number' && Number.isFinite(value.collectedShards) ? Math.max(0, Math.floor(value.collectedShards)) : 0,
+    pickedUpItems: sanitizePickedUpItems(value.pickedUpItems),
+    portalHubUnlocked: Boolean(value.portalHubUnlocked),
+  };
+}
+
 export const SaveCodec = {
   encode(state: SaveState): string {
     const payload: SaveState = {
@@ -133,34 +216,21 @@ export const SaveCodec = {
       return invalid('Code format is invalid', 'decode_failed');
     }
 
-    const value = parsed as Partial<SaveState>;
+    const value = parsed as Partial<SaveState> | LegacySaveStateV1;
 
-    if (value.version !== VERSION) {
+    if (typeof value.version !== 'number' || value.version > VERSION || value.version < 1) {
       return invalid('Code version not supported', 'unsupported_version');
     }
 
-    if (typeof value.seed !== 'string' || typeof value.currentMaze !== 'number') {
+    const migrated = migrateSaveState(value as Partial<SaveState> & { version?: number });
+
+    if (!migrated) {
       return invalid('Code format is invalid', 'decode_failed');
     }
 
     return {
       ok: true,
-      value: {
-        version: VERSION,
-        seed: value.seed,
-        playerCharacterId:
-          typeof value.playerCharacterId === 'string' && isPlayerCharacterId(value.playerCharacterId)
-            ? value.playerCharacterId
-            : DEFAULT_PLAYER_CHARACTER_ID,
-        currentMaze: value.currentMaze,
-        unlockedTools: value.unlockedTools ?? 0,
-        inventory: value.inventory ?? [],
-        completedMazes: value.completedMazes ?? [],
-        artifacts: value.artifacts ?? 0,
-        playtime: value.playtime ?? 0,
-        mazeFirstEntryTimes: sanitizeMazeTimingMap(value.mazeFirstEntryTimes),
-        mazeFirstCompletionTimes: sanitizeMazeTimingMap(value.mazeFirstCompletionTimes),
-      },
+      value: migrated,
     };
   },
 };

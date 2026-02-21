@@ -14,8 +14,8 @@ export class PlayerController {
     this.velocity.set(0, 0, 0);
   }
 
-  update(inputDirection: THREE.Vector2, dt: number, maze: MazeInstance): void {
-    this.velocity.set(inputDirection.x * PLAYER_SPEED, 0, inputDirection.y * PLAYER_SPEED);
+  update(inputDirection: THREE.Vector2, dt: number, maze: MazeInstance, speedMultiplier = 1): void {
+    this.velocity.set(inputDirection.x * PLAYER_SPEED * speedMultiplier, 0, inputDirection.y * PLAYER_SPEED * speedMultiplier);
     this.motor.move(this.position, this.velocity, dt, maze, PLAYER_RADIUS);
   }
 }

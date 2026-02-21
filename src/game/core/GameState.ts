@@ -3,7 +3,7 @@ import { DEFAULT_PLAYER_CHARACTER_ID } from '../rendering/AssetRegistry';
 
 export function createInitialState(): GameState {
   return {
-    version: 1,
+    version: 2,
     playerSeed: '',
     playerCharacterId: DEFAULT_PLAYER_CHARACTER_ID,
     currentMaze: 1,
@@ -15,6 +15,11 @@ export function createInitialState(): GameState {
     playtimeSeconds: 0,
     mazeFirstEntryTimes: {},
     mazeFirstCompletionTimes: {},
+    activeToolId: null,
+    activeToolEndTime: null,
+    collectedShards: 0,
+    mazeItemState: {},
+    portalHubUnlocked: false,
     runStatus: 'menu',
   };
 }

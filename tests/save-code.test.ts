@@ -29,7 +29,7 @@ function encodeCustomPayload(raw: unknown): string {
 describe('SaveCodec', () => {
   it('roundtrips a valid save state', () => {
     const state: SaveState = {
-      version: 1,
+      version: 2,
       seed: 'abc123',
       playerCharacterId: 'character_female_1',
       currentMaze: 7,
@@ -40,6 +40,11 @@ describe('SaveCodec', () => {
       playtime: 128,
       mazeFirstEntryTimes: { 1: 0, 2: 30, 7: 115 },
       mazeFirstCompletionTimes: { 1: 12, 2: 25, 3: 48 },
+      activeToolId: 'basic_torch',
+      activeToolExpiry: 123456,
+      collectedShards: 9,
+      pickedUpItems: { '7': ['item_7_0'] },
+      portalHubUnlocked: true,
     };
 
     const code = SaveCodec.encode(state);
@@ -48,13 +53,13 @@ describe('SaveCodec', () => {
     expect(decoded.ok).toBe(true);
 
     if (decoded.ok) {
-      expect(decoded.value).toEqual({ ...state, version: 1 });
+      expect(decoded.value).toEqual({ ...state, version: 2 });
     }
   });
 
   it('rejects invalid format and checksum mismatch', () => {
     const state: SaveState = {
-      version: 1,
+      version: 2,
       seed: 'seed-z',
       playerCharacterId: 'character_male_2',
       currentMaze: 2,
@@ -65,6 +70,11 @@ describe('SaveCodec', () => {
       playtime: 5,
       mazeFirstEntryTimes: { 1: 0, 2: 5 },
       mazeFirstCompletionTimes: { 1: 4 },
+      activeToolId: null,
+      activeToolExpiry: null,
+      collectedShards: 0,
+      pickedUpItems: {},
+      portalHubUnlocked: false,
     };
 
     const validCode = SaveCodec.encode(state);
@@ -86,7 +96,7 @@ describe('SaveCodec', () => {
 
   it('rejects unsupported versions with valid payload checksum', () => {
     const code = encodeCustomPayload({
-      version: 2,
+      version: 3,
       seed: 'future-seed',
       playerCharacterId: 'character_male_1',
       currentMaze: 11,
@@ -97,6 +107,11 @@ describe('SaveCodec', () => {
       playtime: 0,
       mazeFirstEntryTimes: {},
       mazeFirstCompletionTimes: {},
+      activeToolId: null,
+      activeToolExpiry: null,
+      collectedShards: 0,
+      pickedUpItems: {},
+      portalHubUnlocked: false,
     });
 
     const decoded = SaveCodec.decode(code);
@@ -124,8 +139,11 @@ describe('SaveCodec', () => {
     expect(decoded.ok).toBe(true);
     if (decoded.ok) {
       expect(decoded.value.playerCharacterId).toBe(DEFAULT_PLAYER_CHARACTER_ID);
+      expect(decoded.value.version).toBe(2);
       expect(decoded.value.mazeFirstEntryTimes).toEqual({});
       expect(decoded.value.mazeFirstCompletionTimes).toEqual({});
+      expect(decoded.value.portalHubUnlocked).toBe(false);
+      expect(decoded.value.pickedUpItems).toEqual({});
     }
   });
 });

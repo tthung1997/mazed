@@ -1,5 +1,6 @@
 import type { MazeInstance } from '../game/maze/MazeTypes';
 import type { PlayerCharacterId } from '../game/rendering/AssetRegistry';
+import type { MazeItemState, ToolId } from './items';
 
 export interface GameState {
   version: number;
@@ -14,5 +15,10 @@ export interface GameState {
   playtimeSeconds: number;
   mazeFirstEntryTimes: Record<number, number>;
   mazeFirstCompletionTimes: Record<number, number>;
+  activeToolId: ToolId | null;
+  activeToolEndTime: number | null;
+  collectedShards: number;
+  mazeItemState: Record<number, MazeItemState>;
+  portalHubUnlocked: boolean;
   runStatus: 'menu' | 'playing' | 'transition' | 'paused';
 }
