@@ -17,6 +17,10 @@ export interface HazardTraversalContext {
 export class HazardSystem {
   private readonly hazardByTile = new Map<string, HazardInstance>();
 
+  getHazardAtTile(tileX: number, tileY: number): HazardInstance | undefined {
+    return this.hazardByTile.get(tileKey(tileX, tileY));
+  }
+
   loadMaze(hazards: HazardInstance[] | undefined): void {
     this.hazardByTile.clear();
 

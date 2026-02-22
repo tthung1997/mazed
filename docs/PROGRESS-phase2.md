@@ -112,3 +112,30 @@ Use this block at the end of each future session:
 - New completed items: New-game flow now respects `?debugStartMaze=<N>` in development builds only; includes parser test coverage.
 - Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
 - Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Made one-way door direction explicitly visible in hazard rendering and added renderer-level test coverage.
+- Files changed: `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (36/36 passing)
+- Build result: `npm run build` (passing)
+- New completed items: One-way doors now render with a dedicated directional marker (including glTF template path), preventing orientation from appearing static.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Replaced one-way door marker approach with actual swing animation triggered on successful one-way traversal.
+- Files changed: `src/game/core/GameApp.ts`, `src/game/rendering/HazardMeshBuilder.ts`, `src/game/systems/HazardSystem.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (36/36 passing)
+- Build result: `npm run build` (passing)
+- New completed items: One-way doors now visibly rotate open and settle back when entered from allowed direction; no persistent marker overlay is used.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Simplified one-way door visualization to slide into the floor, remain open while player is on the tile, and close after leaving the tile.
+- Files changed: `src/game/core/GameApp.ts`, `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (36/36 passing)
+- Build result: `npm run build` (passing)
+- New completed items: One-way doors no longer snap back immediately; open state is held until tile pass-through completes.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).

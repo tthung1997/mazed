@@ -8,6 +8,15 @@ export interface HazardRenderData {
   hazardById: Map<string, HazardInstance>;
 }
 
+const ONE_WAY_SLIDE_DURATION_SECONDS = 0.22;
+const ONE_WAY_SLIDE_DISTANCE = 1.2;
+
+interface OneWaySlideState {
+  phase: 'opening' | 'open' | 'closing';
+  progress: number;
+  baseY: number;
+}
+
 function directionYaw(direction: 'north' | 'south' | 'east' | 'west'): number {
   switch (direction) {
     case 'north':
@@ -39,7 +48,11 @@ function oneWayDoorOffset(direction: 'north' | 'south' | 'east' | 'west'): { x: 
 }
 
 export class HazardMeshBuilder {
+  private readonly oneWaySlideStates = new Map<string, OneWaySlideState>();
+
   build(hazards: HazardInstance[] | undefined): HazardRenderData {
+    this.oneWaySlideStates.clear();
+
     const root = new THREE.Group();
     root.name = 'maze-hazards-root';
 
@@ -57,6 +70,103 @@ export class HazardMeshBuilder {
     }
 
     return { root, meshByHazardId, hazardById };
+  }
+
+  triggerOneWayDoorOpen(renderData: HazardRenderData, hazardId: string): void {
+    const hazard = renderData.hazardById.get(hazardId);
+    const mesh = renderData.meshByHazardId.get(hazardId);
+
+    if (!hazard || hazard.type !== 'one_way_door' || !mesh) {
+      return;
+    }
+
+    const existing = this.oneWaySlideStates.get(hazardId);
+
+    if (!existing) {
+      this.oneWaySlideStates.set(hazardId, {
+        phase: 'opening',
+        progress: 0,
+        baseY: mesh.position.y,
+      });
+      return;
+    }
+
+    if (existing.phase === 'open' || existing.phase === 'opening') {
+      return;
+    }
+
+    existing.phase = 'opening';
+    existing.progress = 1 - existing.progress;
+  }
+
+  triggerOneWayDoorClose(renderData: HazardRenderData, hazardId: string): void {
+    const hazard = renderData.hazardById.get(hazardId);
+
+    if (!hazard || hazard.type !== 'one_way_door') {
+      return;
+    }
+
+    const existing = this.oneWaySlideStates.get(hazardId);
+
+    if (!existing) {
+      return;
+    }
+
+    if (existing.phase === 'closing') {
+      return;
+    }
+
+    existing.phase = 'closing';
+  }
+
+  updateDoorAnimations(renderData: HazardRenderData, dtSeconds: number): void {
+    if (dtSeconds <= 0 || this.oneWaySlideStates.size === 0) {
+      return;
+    }
+
+    const completed: string[] = [];
+    const progressDelta = dtSeconds / ONE_WAY_SLIDE_DURATION_SECONDS;
+
+    for (const [hazardId, slideState] of this.oneWaySlideStates) {
+      const hazard = renderData.hazardById.get(hazardId);
+      const mesh = renderData.meshByHazardId.get(hazardId);
+
+      if (!hazard || hazard.type !== 'one_way_door' || !mesh) {
+        completed.push(hazardId);
+        continue;
+      }
+
+      const baseYaw = directionYaw(hazard.meta.allowedDirection);
+      mesh.rotation.y = baseYaw;
+
+      if (slideState.phase === 'opening') {
+        slideState.progress = Math.min(1, slideState.progress + progressDelta);
+        mesh.position.y = slideState.baseY - ONE_WAY_SLIDE_DISTANCE * slideState.progress;
+
+        if (slideState.progress >= 1) {
+          slideState.phase = 'open';
+        }
+
+        continue;
+      }
+
+      if (slideState.phase === 'open') {
+        mesh.position.y = slideState.baseY - ONE_WAY_SLIDE_DISTANCE;
+        continue;
+      }
+
+      slideState.progress = Math.max(0, slideState.progress - progressDelta);
+      mesh.position.y = slideState.baseY - ONE_WAY_SLIDE_DISTANCE * slideState.progress;
+
+      if (slideState.progress <= 0) {
+        mesh.position.y = slideState.baseY;
+        completed.push(hazardId);
+      }
+    }
+
+    for (const hazardId of completed) {
+      this.oneWaySlideStates.delete(hazardId);
+    }
   }
 
   applyFullVisibility(renderData: HazardRenderData, maze: MazeInstance): void {

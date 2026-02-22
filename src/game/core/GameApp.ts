@@ -220,8 +220,8 @@ export class GameApp {
     this.visibilityRadius = BASE_VISIBILITY_RADIUS + this.toolSystem.getVisibilityBonus();
 
     const moveInput = this.input.getMovementVector();
-    this.player.update(moveInput, dt, this.state.maze, this.toolSystem.getSpeedMultiplier(), (fromTile, toTile, direction) =>
-      this.hazardSystem.checkPassThrough(fromTile, toTile, direction, {
+    this.player.update(moveInput, dt, this.state.maze, this.toolSystem.getSpeedMultiplier(), (fromTile, toTile, direction) => {
+      const canPass = this.hazardSystem.checkPassThrough(fromTile, toTile, direction, {
         hasSkeletonKey: (this.state.unlockedToolsMask & getToolBit('skeleton_key')) !== 0,
         consumeSkeletonKey: () => {
           this.state.unlockedToolsMask &= ~getToolBit('skeleton_key');
@@ -232,8 +232,23 @@ export class GameApp {
             this.toolSystem.syncFromState(null, null);
           }
         },
-      }),
-    );
+      });
+
+      if (canPass && this.hazardRenderData) {
+        const hazard = this.hazardSystem.getHazardAtTile(toTile.x, toTile.y);
+
+        if (hazard?.type === 'one_way_door') {
+          this.hazardMeshBuilder.triggerOneWayDoorOpen(this.hazardRenderData, hazard.id);
+        }
+      }
+
+      return canPass;
+    });
+
+    if (this.hazardRenderData) {
+      this.hazardMeshBuilder.updateDoorAnimations(this.hazardRenderData, dt);
+    }
+
     this.updatePlayerAnimation(dt);
     this.updatePlayerFacing(dt);
     this.syncPlayerVisualPosition();
@@ -244,6 +259,14 @@ export class GameApp {
     };
 
     if (tile.x !== this.previousPlayerTile.x || tile.y !== this.previousPlayerTile.y) {
+      if (this.hazardRenderData && this.previousPlayerTile.x >= 0 && this.previousPlayerTile.y >= 0) {
+        const previousHazard = this.hazardSystem.getHazardAtTile(this.previousPlayerTile.x, this.previousPlayerTile.y);
+
+        if (previousHazard?.type === 'one_way_door') {
+          this.hazardMeshBuilder.triggerOneWayDoorClose(this.hazardRenderData, previousHazard.id);
+        }
+      }
+
       this.previousPlayerTile = tile;
       const dirty = this.visibilitySystem.update(tile, this.state.maze, this.visibilityRadius);
 
