@@ -6,9 +6,15 @@ Browser-based 3D maze exploration game (TypeScript + Three.js + Vite). Procedura
 ## Key References
 - `docs/PRD.md` — product requirements, game mechanics, progression design
 - `docs/TDD-phase1.md` / `docs/TDD-phase2.md` — technical design for each phase
+- `docs/PROGRESS-*.md` — session progress trackers (must be read at session start and updated at session end)
 - `.chats/` — previous AI session chat history; check here for context on past decisions
 
 ## Agent Workflow
+- **Every session must use progress files**:
+	- At start: read the relevant `docs/PROGRESS-*.md` file(s) before proposing next work
+	- During work: keep implementation aligned with the listed “next step” and status
+	- At end: update the same progress file with what was completed, validation run, blockers, and the next single step
+	- If a relevant progress file does not exist for the active scope, create one under `docs/` and continue using it
 - Work on **one thing at a time** — complete it, then ask the user for validation/confirmation before proceeding
 - **Commit current changes** before moving on to the next task; avoid bundling unrelated changes in a single commit
 - Keep commits small and focused — one logical change per commit
