@@ -103,3 +103,12 @@ Use this block at the end of each future session:
 - Remaining blockers:
 - Next single step:
 ```
+
+### Session Update — 2026-02-22
+- Scope: Added a dev-only debug flag to start a new game from any maze number.
+- Files changed: `src/utils/debugFlags.ts`, `src/game/core/GameApp.ts`, `tests/debug-flags.test.ts`, `README.md`
+- Tests run: `npm run test` (35/35 passing)
+- Build result: `npm run build` (passing)
+- New completed items: New-game flow now respects `?debugStartMaze=<N>` in development builds only; includes parser test coverage.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).

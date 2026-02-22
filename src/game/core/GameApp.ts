@@ -4,6 +4,7 @@ import type { SaveState } from '../../types/save';
 import type { MazeItemState } from '../../types/items';
 import { isImplementedToolId, unlockTool } from '../../types/items';
 import { SaveCodec } from '../../utils/saveCode';
+import { parseDebugStartMaze } from '../../utils/debugFlags';
 import { getMazeParams } from '../maze/Difficulty';
 import { MazeGenerator } from '../maze/MazeGenerator';
 import { HazardSpawner } from '../maze/HazardSpawner';
@@ -91,6 +92,7 @@ export class GameApp {
   private readonly saveModal: SaveCodeModal;
   private readonly portalHubModal: PortalHubModal;
   private readonly perfHudEnabled = import.meta.env.DEV;
+  private readonly debugStartMaze = parseDebugStartMaze(window.location.search, import.meta.env.DEV);
   private readonly perfHudEl: HTMLDivElement | null = null;
 
   private mazeRenderData: MazeRenderData | null = null;
@@ -301,15 +303,16 @@ export class GameApp {
   };
 
   private startNewGame(): void {
+    const startingMaze = this.debugStartMaze ?? 1;
     this.applyPlayerCharacter(this.menus.getSelectedCharacterId());
     this.state.playerSeed = randomSeed(8);
-    this.state.currentMaze = 1;
-    this.state.completedMazes = [];
+    this.state.currentMaze = startingMaze;
+    this.state.completedMazes = startingMaze > 1 ? Array.from({ length: startingMaze - 1 }, (_, index) => index + 1) : [];
     this.state.unlockedToolsMask = 0;
     this.state.artifactsMask = 0;
     this.state.inventory = [];
     this.state.playtimeSeconds = 0;
-    this.state.mazeFirstEntryTimes = { 1: 0 };
+    this.state.mazeFirstEntryTimes = { [startingMaze]: 0 };
     this.state.mazeFirstCompletionTimes = {};
     this.state.activeToolId = null;
     this.state.activeToolEndTime = null;

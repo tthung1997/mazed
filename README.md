@@ -26,3 +26,8 @@ Phase 1 MVP implementation now includes:
 - Move: `WASD` or arrow keys
 - Pause/Resume: `Esc`
 - Use menu actions for New Game, Save/Load, Resume, Quit
+
+## Debug (dev only)
+
+- Start a new run at a specific maze by opening the game with `?debugStartMaze=<mazeNumber>`
+- Example: `http://localhost:5173/?debugStartMaze=25`
