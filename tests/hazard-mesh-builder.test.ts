@@ -4,6 +4,65 @@ import { HazardMeshBuilder } from '../src/game/rendering/HazardMeshBuilder';
 import type { HazardInstance } from '../src/types/hazards';
 
 describe('HazardMeshBuilder', () => {
+  it('centers applied door template bounds on hazard tile even for asymmetric templates', () => {
+    const builder = new HazardMeshBuilder();
+    const hazards: HazardInstance[] = [
+      {
+        id: 'one-way',
+        type: 'one_way_door',
+        tileX: 4,
+        tileY: 6,
+        meta: { allowedDirection: 'east' },
+      },
+    ];
+
+    const renderData = builder.build(hazards);
+    const template = new THREE.Group();
+    const asymmetric = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial());
+    asymmetric.position.set(0.9, 0, -0.35);
+    template.add(asymmetric);
+
+    builder.applyDoorModelTemplate(renderData, template);
+
+    const oneWayModel = renderData.meshByHazardId.get('one-way');
+    expect(oneWayModel).toBeTruthy();
+
+    const bounds = new THREE.Box3().setFromObject(oneWayModel!);
+    const center = bounds.getCenter(new THREE.Vector3());
+
+    expect(center.x).toBeCloseTo(4.5, 5);
+    expect(center.z).toBeCloseTo(6.5, 5);
+  });
+
+  it('centers one-way and locked doors on their hazard tile', () => {
+    const builder = new HazardMeshBuilder();
+    const hazards: HazardInstance[] = [
+      {
+        id: 'one-way',
+        type: 'one_way_door',
+        tileX: 3,
+        tileY: 4,
+        meta: { allowedDirection: 'north' },
+      },
+      {
+        id: 'locked',
+        type: 'locked_door',
+        tileX: 7,
+        tileY: 2,
+        meta: { requiresKey: true, open: false },
+      },
+    ];
+
+    const renderData = builder.build(hazards);
+    const oneWayModel = renderData.meshByHazardId.get('one-way');
+    const lockedModel = renderData.meshByHazardId.get('locked');
+
+    expect(oneWayModel?.position.x).toBeCloseTo(3.5, 5);
+    expect(oneWayModel?.position.z).toBeCloseTo(4.5, 5);
+    expect(lockedModel?.position.x).toBeCloseTo(7.5, 5);
+    expect(lockedModel?.position.z).toBeCloseTo(2.5, 5);
+  });
+
   it('slides one-way door down, keeps it open, and closes only when requested', () => {
     const builder = new HazardMeshBuilder();
     const hazards: HazardInstance[] = [

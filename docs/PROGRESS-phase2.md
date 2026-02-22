@@ -139,3 +139,39 @@ Use this block at the end of each future session:
 - New completed items: One-way doors no longer snap back immediately; open state is held until tile pass-through completes.
 - Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
 - Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Centralized door rendering alignment so one-way and locked doors share the same tile-centered placement path.
+- Files changed: `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (37/37 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Removed one-way-only positional offset; all door hazards now use shared transform helpers for consistent alignment.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Corrected door mesh placement so one-way visuals align with traversal gate while keeping shared transform flow.
+- Files changed: `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (37/37 passing)
+- Build result: `npm run build` (passing)
+- New completed items: One-way doors are rendered back on the doorway edge to match blocking behavior; locked doors remain centered.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Simplified door alignment rule so both one-way and locked doors are centered on their hazard tile.
+- Files changed: `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (37/37 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Door placement is now uniform and type-agnostic; door-type differences are limited to open/traversal behavior.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Corrected door visual centering by aligning rendered model bounds to hazard tile center after template swap.
+- Files changed: `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (38/38 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Door visuals now remain centered on hazard tiles even when source glTF template pivots are asymmetric.
+- Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
+- Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).

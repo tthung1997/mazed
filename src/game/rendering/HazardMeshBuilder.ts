@@ -32,21 +32,6 @@ function directionYaw(direction: 'north' | 'south' | 'east' | 'west'): number {
   }
 }
 
-function oneWayDoorOffset(direction: 'north' | 'south' | 'east' | 'west'): { x: number; z: number } {
-  switch (direction) {
-    case 'east':
-      return { x: -0.6, z: 0 };
-    case 'west':
-      return { x: 0.6, z: 0 };
-    case 'north':
-      return { x: 0, z: 0.6 };
-    case 'south':
-      return { x: 0, z: -0.6 };
-    default:
-      return { x: 0, z: 0 };
-  }
-}
-
 export class HazardMeshBuilder {
   private readonly oneWaySlideStates = new Map<string, OneWaySlideState>();
 
@@ -61,9 +46,7 @@ export class HazardMeshBuilder {
 
     for (const hazard of hazards ?? []) {
       const mesh = this.createFallbackMesh(hazard);
-
-      const offset = hazard.type === 'one_way_door' ? oneWayDoorOffset(hazard.meta.allowedDirection) : { x: 0, z: 0 };
-      mesh.position.set(hazard.tileX + 0.5 + offset.x, 0, hazard.tileY + 0.5 + offset.z);
+      this.applyDoorTransform(mesh, hazard, 0);
       root.add(mesh);
       meshByHazardId.set(hazard.id, mesh);
       hazardById.set(hazard.id, hazard);
@@ -208,13 +191,9 @@ export class HazardMeshBuilder {
       }
 
       const model = template.clone(true);
-      model.position.copy(existing.position);
-      model.rotation.copy(existing.rotation);
+      this.applyDoorTransform(model, hazard, existing.position.y);
+      this.alignModelToHazardTileCenter(model, hazard, existing.position.y);
       model.visible = existing.visible;
-
-      if (hazard.type === 'one_way_door') {
-        model.rotation.y = directionYaw(hazard.meta.allowedDirection);
-      }
 
       if (hazard.type === 'locked_door') {
         this.tintModel(model, '#fca5a5', '#ef4444', 0.2);
@@ -248,6 +227,32 @@ export class HazardMeshBuilder {
     lockedDoor.position.y = 0.26;
     group.add(lockedDoor);
     return group;
+  }
+
+  private applyDoorTransform(mesh: THREE.Object3D, hazard: HazardInstance, worldY: number): void {
+    mesh.position.set(hazard.tileX + 0.5, worldY, hazard.tileY + 0.5);
+    mesh.rotation.set(0, this.getDoorYaw(hazard), 0);
+  }
+
+  private getDoorYaw(hazard: HazardInstance): number {
+    if (hazard.type !== 'one_way_door') {
+      return 0;
+    }
+
+    return directionYaw(hazard.meta.allowedDirection);
+  }
+
+  private alignModelToHazardTileCenter(model: THREE.Object3D, hazard: HazardInstance, worldY: number): void {
+    const targetX = hazard.tileX + 0.5;
+    const targetZ = hazard.tileY + 0.5;
+
+    model.updateWorldMatrix(true, true);
+    const bounds = new THREE.Box3().setFromObject(model);
+    const center = bounds.getCenter(new THREE.Vector3());
+    const deltaX = targetX - center.x;
+    const deltaZ = targetZ - center.z;
+
+    model.position.set(model.position.x + deltaX, worldY, model.position.z + deltaZ);
   }
 
   private tintModel(model: THREE.Object3D, color: string, emissive: string, emissiveIntensity: number): void {
