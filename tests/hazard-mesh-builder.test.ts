@@ -159,7 +159,7 @@ describe('HazardMeshBuilder', () => {
     expect(pressureDoorModel).toBeTruthy();
     expect(pressurePlateModel).toBeTruthy();
     expect(pressurePlateModel?.position.y).toBeCloseTo(0, 5);
-    expect(pressureDoorModel?.rotation.y).toBeCloseTo(Math.PI * 0.5, 5);
+    expect(pressureDoorModel?.rotation.y).toBeCloseTo(0, 5);
 
     let tintedMaterial: THREE.MeshStandardMaterial | null = null;
     pressureDoorModel?.traverse((node) => {

@@ -329,11 +329,11 @@ export class HazardMeshBuilder {
     }
 
     if (hazard.type === 'pressure_plate_door') {
-      return hazard.meta.passageAxis === 'horizontal' ? 0 : Math.PI * 0.5;
+      return hazard.meta.passageAxis === 'horizontal' ? Math.PI * 0.5 : 0;
     }
 
     if (hazard.type === 'locked_door') {
-      return hazard.meta.passageAxis === 'horizontal' ? 0 : Math.PI * 0.5;
+      return hazard.meta.passageAxis === 'horizontal' ? Math.PI * 0.5 : 0;
     }
 
     return 0;

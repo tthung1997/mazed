@@ -201,3 +201,21 @@ Use this block at the end of each future session:
 - New completed items: Locked doors now spawn with deterministic `passageAxis`; renderer applies axis-based yaw for horizontal/vertical corridor alignment.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Fixed axis-door placement ambiguity by restricting pressure-plate and locked-door tiles to straight-corridor candidates only.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (42/42 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Axis-based doors no longer spawn on corner/intersection tiles that could force incorrect visual orientation.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Corrected an accidental axis-to-yaw inversion for axis-based doors; restored model-accurate yaw mapping while keeping straight-corridor spawn filtering.
+- Files changed: `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (42/42 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Locked and pressure-plate doors share the same axis metadata but now use the model-correct yaw mapping again.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.

@@ -155,11 +155,14 @@ describe('HazardSpawner', () => {
       const hasHorizontal = hasEast && hasWest;
       const hasVertical = hasNorth && hasSouth;
 
-      if (hasHorizontal && !hasVertical) {
+      expect(hasHorizontal || hasVertical).toBe(true);
+      expect(hasHorizontal && hasVertical).toBe(false);
+
+      if (hasHorizontal) {
         expect(linkedDoor!.meta.passageAxis).toBe('horizontal');
       }
 
-      if (hasVertical && !hasHorizontal) {
+      if (hasVertical) {
         expect(linkedDoor!.meta.passageAxis).toBe('vertical');
       }
     }
@@ -183,11 +186,14 @@ describe('HazardSpawner', () => {
       const hasHorizontal = hasEast && hasWest;
       const hasVertical = hasNorth && hasSouth;
 
-      if (hasHorizontal && !hasVertical) {
+      expect(hasHorizontal || hasVertical).toBe(true);
+      expect(hasHorizontal && hasVertical).toBe(false);
+
+      if (hasHorizontal) {
         expect(door.meta.passageAxis).toBe('horizontal');
       }
 
-      if (hasVertical && !hasHorizontal) {
+      if (hasVertical) {
         expect(door.meta.passageAxis).toBe('vertical');
       }
     }

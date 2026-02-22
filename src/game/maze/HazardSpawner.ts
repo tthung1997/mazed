@@ -40,6 +40,26 @@ function getPassableNeighbors(maze: MazeInstance, tile: TilePoint): Array<{ dire
   return neighbors;
 }
 
+function getCorridorAxis(maze: MazeInstance, tile: TilePoint): 'horizontal' | 'vertical' | null {
+  const neighbors = getPassableNeighbors(maze, tile);
+  const hasEast = neighbors.some((n) => n.direction === 'east');
+  const hasWest = neighbors.some((n) => n.direction === 'west');
+  const hasNorth = neighbors.some((n) => n.direction === 'north');
+  const hasSouth = neighbors.some((n) => n.direction === 'south');
+  const hasHorizontal = hasEast && hasWest;
+  const hasVertical = hasNorth && hasSouth;
+
+  if (hasHorizontal && !hasVertical) {
+    return 'horizontal';
+  }
+
+  if (hasVertical && !hasHorizontal) {
+    return 'vertical';
+  }
+
+  return null;
+}
+
 function buildShortestPathSet(maze: MazeInstance): Set<string> {
   const start = maze.entry;
   const target = maze.exit;
@@ -158,23 +178,7 @@ const PRESSURE_PLATE_LINK_RADIUS = 5;
 const PRESSURE_PLATE_COLOR_KEYS = ['amber', 'cyan', 'violet', 'emerald'];
 
 function getDoorPassageAxis(maze: MazeInstance, tile: TilePoint, random: SeededRandom): 'horizontal' | 'vertical' {
-  const neighbors = getPassableNeighbors(maze, tile);
-  const hasEast = neighbors.some((n) => n.direction === 'east');
-  const hasWest = neighbors.some((n) => n.direction === 'west');
-  const hasNorth = neighbors.some((n) => n.direction === 'north');
-  const hasSouth = neighbors.some((n) => n.direction === 'south');
-  const hasHorizontal = hasEast && hasWest;
-  const hasVertical = hasNorth && hasSouth;
-
-  if (hasHorizontal && !hasVertical) {
-    return 'horizontal';
-  }
-
-  if (hasVertical && !hasHorizontal) {
-    return 'vertical';
-  }
-
-  return random.pick(['horizontal', 'vertical']);
+  return getCorridorAxis(maze, tile) ?? random.pick(['horizontal', 'vertical']);
 }
 
 export class HazardSpawner {
@@ -217,9 +221,9 @@ export class HazardSpawner {
       return (hasEast && hasWest) || (hasNorth && hasSouth);
     });
 
-    const lockedDoorCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
+    const lockedDoorCandidates = allCandidates.filter((tile) => getCorridorAxis(maze, tile) !== null);
     const pressurePlateCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
-    const pressureDoorCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
+    const pressureDoorCandidates = allCandidates.filter((tile) => getCorridorAxis(maze, tile) !== null);
     const occupied = new Set<string>();
     const hazards: HazardInstance[] = [];
 
