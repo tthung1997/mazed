@@ -31,6 +31,7 @@ export function isPlayerCharacterId(value: string): value is PlayerCharacterId {
 }
 
 const EXIT_PORTAL_URL = '/assets/cubeworld/Environment/glTF/Crystal_Big.gltf';
+const DOOR_CLOSED_URL = '/assets/cubeworld/Environment/glTF/Door_Closed.gltf';
 const FLOOR_TILE_URL = '/assets/cubeworld/Pixel%20Blocks/glTF/Bricks_Grey.gltf';
 const WALL_TILE_URL = '/assets/cubeworld/Pixel%20Blocks/glTF/Bricks_Grey.gltf';
 
@@ -110,6 +111,13 @@ export class AssetRegistry {
       }
     });
 
+    return model;
+  }
+
+  async loadDoorClosedModel(): Promise<THREE.Group> {
+    const gltf = await this.loadGltf(DOOR_CLOSED_URL, 'Failed to load door model.');
+    const model = gltf.scene.clone(true);
+    this.prepareStaticModel(model);
     return model;
   }
 

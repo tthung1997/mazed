@@ -1,7 +1,14 @@
 import * as THREE from 'three';
 import type { MazeInstance } from '../maze/MazeTypes';
+import type { CardinalDirection } from '../../types/hazards';
 import { PLAYER_RADIUS, PLAYER_SPEED } from '../core/constants';
 import { PlayerMotor } from './PlayerMotor';
+
+export type MoveGate = (
+  fromTile: { x: number; y: number },
+  toTile: { x: number; y: number },
+  direction: CardinalDirection,
+) => boolean;
 
 export class PlayerController {
   readonly position = new THREE.Vector3(0.5, 0.35, 0.5);
@@ -14,8 +21,8 @@ export class PlayerController {
     this.velocity.set(0, 0, 0);
   }
 
-  update(inputDirection: THREE.Vector2, dt: number, maze: MazeInstance, speedMultiplier = 1): void {
+  update(inputDirection: THREE.Vector2, dt: number, maze: MazeInstance, speedMultiplier = 1, moveGate?: MoveGate): void {
     this.velocity.set(inputDirection.x * PLAYER_SPEED * speedMultiplier, 0, inputDirection.y * PLAYER_SPEED * speedMultiplier);
-    this.motor.move(this.position, this.velocity, dt, maze, PLAYER_RADIUS);
+    this.motor.move(this.position, this.velocity, dt, maze, PLAYER_RADIUS, moveGate);
   }
 }

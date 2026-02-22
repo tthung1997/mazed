@@ -6,11 +6,13 @@ import { isImplementedToolId, unlockTool } from '../../types/items';
 import { SaveCodec } from '../../utils/saveCode';
 import { getMazeParams } from '../maze/Difficulty';
 import { MazeGenerator } from '../maze/MazeGenerator';
+import { HazardSpawner } from '../maze/HazardSpawner';
 import { ItemSpawner } from '../maze/ItemSpawner';
 import { PlayerInput } from '../player/PlayerInput';
 import { PlayerController } from '../player/PlayerController';
 import { CameraController } from '../rendering/CameraController';
 import { FogRenderer } from '../rendering/FogRenderer';
+import { HazardMeshBuilder, type HazardRenderData } from '../rendering/HazardMeshBuilder';
 import { ItemMeshBuilder, type ItemRenderData } from '../rendering/ItemMeshBuilder';
 import { MazeBuilder, type MazeRenderData } from '../rendering/MazeBuilder';
 import { SceneManager } from '../rendering/SceneManager';
@@ -21,6 +23,7 @@ import { MenuController } from '../ui/MenuController';
 import { PortalHubModal } from '../ui/PortalHubModal';
 import { SaveCodeModal } from '../ui/SaveCodeModal';
 import { ItemSystem, type ItemPickupEvent } from '../systems/ItemSystem';
+import { HazardSystem } from '../systems/HazardSystem';
 import { PortalSystem } from '../systems/PortalSystem';
 import { ToolSystem } from '../systems/ToolSystem';
 import { VisibilitySystem } from '../systems/VisibilitySystem';
@@ -28,6 +31,7 @@ import { createInitialState } from './GameState';
 import { BASE_VISIBILITY_RADIUS, PLAYER_SPEED, TRANSITION_DURATION_MS } from './constants';
 import { GameLoop } from './GameLoop';
 import { TransitionSystem } from '../systems/TransitionSystem';
+import { getToolBit } from '../../types/items';
 
 const PLAYER_TURN_SPEED = 14;
 const PLAYER_MODEL_YAW_OFFSET = 0;
@@ -69,13 +73,16 @@ export class GameApp {
   private readonly portalSystem = new PortalSystem();
   private readonly transition = new TransitionSystem(TRANSITION_DURATION_MS);
   private readonly mazeGenerator = new MazeGenerator();
+  private readonly hazardSpawner = new HazardSpawner();
   private readonly itemSpawner = new ItemSpawner();
   private readonly mazeBuilder = new MazeBuilder();
+  private readonly hazardMeshBuilder = new HazardMeshBuilder();
   private readonly itemMeshBuilder = new ItemMeshBuilder();
   private readonly fogRenderer = new FogRenderer();
   private readonly assets = new AssetRegistry();
   private readonly itemSystem = new ItemSystem();
   private readonly toolSystem = new ToolSystem();
+  private readonly hazardSystem = new HazardSystem();
 
   private readonly playerVisual: THREE.Group;
   private readonly playerModelPivot: THREE.Group;
@@ -87,6 +94,7 @@ export class GameApp {
   private readonly perfHudEl: HTMLDivElement | null = null;
 
   private mazeRenderData: MazeRenderData | null = null;
+  private hazardRenderData: HazardRenderData | null = null;
   private itemRenderData: ItemRenderData | null = null;
   private previousPlayerTile = { x: -1, y: -1 };
   private visibilityRadius = BASE_VISIBILITY_RADIUS;
@@ -210,7 +218,20 @@ export class GameApp {
     this.visibilityRadius = BASE_VISIBILITY_RADIUS + this.toolSystem.getVisibilityBonus();
 
     const moveInput = this.input.getMovementVector();
-    this.player.update(moveInput, dt, this.state.maze, this.toolSystem.getSpeedMultiplier());
+    this.player.update(moveInput, dt, this.state.maze, this.toolSystem.getSpeedMultiplier(), (fromTile, toTile, direction) =>
+      this.hazardSystem.checkPassThrough(fromTile, toTile, direction, {
+        hasSkeletonKey: (this.state.unlockedToolsMask & getToolBit('skeleton_key')) !== 0,
+        consumeSkeletonKey: () => {
+          this.state.unlockedToolsMask &= ~getToolBit('skeleton_key');
+
+          if (this.state.activeToolId === 'skeleton_key') {
+            this.state.activeToolId = null;
+            this.state.activeToolEndTime = null;
+            this.toolSystem.syncFromState(null, null);
+          }
+        },
+      }),
+    );
     this.updatePlayerAnimation(dt);
     this.updatePlayerFacing(dt);
     this.syncPlayerVisualPosition();
@@ -232,6 +253,10 @@ export class GameApp {
 
       if (this.itemRenderData) {
         this.itemMeshBuilder.applyDirtyVisibility(this.itemRenderData, this.state.maze, dirty.changedTiles);
+      }
+
+      if (this.hazardRenderData) {
+        this.hazardMeshBuilder.applyDirtyVisibility(this.hazardRenderData, this.state.maze, dirty.changedTiles);
       }
     }
 
@@ -306,6 +331,10 @@ export class GameApp {
     const maze = cachedMaze ?? this.mazeGenerator.generate(getMazeParams(this.state.playerSeed, this.state.currentMaze));
     this.mazeNetwork.set(this.state.currentMaze, maze);
 
+    if (!maze.hazards) {
+      maze.hazards = this.hazardSpawner.spawnHazards(maze);
+    }
+
     const mazeState = this.getOrCreateMazeItemState(this.state.currentMaze, maze);
     const pickedUpSet = new Set(mazeState.pickedUp);
     maze.itemSpawns = mazeState.spawns.filter((spawn) => !pickedUpSet.has(spawn.id));
@@ -322,6 +351,9 @@ export class GameApp {
     }
 
     this.mazeRenderData = this.mazeBuilder.build(maze);
+    this.hazardSystem.loadMaze(maze.hazards);
+    this.hazardRenderData = this.hazardMeshBuilder.build(maze.hazards);
+    this.mazeRenderData.root.add(this.hazardRenderData.root);
     this.itemSystem.loadMaze(maze);
     this.itemRenderData = this.itemMeshBuilder.build(this.itemSystem.getSpawns());
     this.mazeRenderData.root.add(this.itemRenderData.root);
@@ -329,6 +361,7 @@ export class GameApp {
     void this.applyTileModels(this.mazeRenderData, maze, buildVersion);
     void this.applyExitPortalVisual(this.mazeRenderData, maze, buildVersion);
     void this.applyBackPortalVisual(this.mazeRenderData, maze, buildVersion);
+    void this.applyHazardVisuals(this.hazardRenderData, maze, buildVersion);
 
     const spawnPoint = this.nextMazeSpawnPoint;
     const spawnTile = spawnPoint === 'exit' ? maze.exit : maze.entry;
@@ -347,6 +380,10 @@ export class GameApp {
 
     if (this.itemRenderData) {
       this.itemMeshBuilder.applyFullVisibility(this.itemRenderData, maze);
+    }
+
+    if (this.hazardRenderData) {
+      this.hazardMeshBuilder.applyFullVisibility(this.hazardRenderData, maze);
     }
 
     if (spawnPoint === 'exit') {
@@ -967,6 +1004,41 @@ export class GameApp {
     } catch (error) {
       console.warn('Failed to load back portal model. Keeping fallback back marker.', error);
     }
+  }
+
+  private async applyHazardVisuals(renderData: HazardRenderData, maze: MazeInstance, buildVersion: number): Promise<void> {
+    try {
+      const doorModel = await this.assets.loadDoorClosedModel();
+
+      if (buildVersion !== this.mazeBuildVersion || this.mazeRenderData?.root !== renderData.root.parent) {
+        return;
+      }
+
+      this.fitDoorModel(doorModel);
+      this.hazardMeshBuilder.applyDoorModelTemplate(renderData, doorModel);
+      this.hazardMeshBuilder.applyFullVisibility(renderData, maze);
+    } catch (error) {
+      console.warn('Failed to load hazard door model. Keeping fallback hazard meshes.', error);
+    }
+  }
+
+  private fitDoorModel(model: THREE.Object3D): void {
+    model.position.set(0, 0, 0);
+    model.scale.set(1, 1, 1);
+    model.updateWorldMatrix(true, true);
+
+    const bounds = new THREE.Box3().setFromObject(model);
+    const size = bounds.getSize(new THREE.Vector3());
+
+    if (size.x > 0 && size.y > 0 && size.z > 0) {
+      model.scale.set(1.011 / size.x, 1.3 / size.y, 0.289 / size.z);
+    }
+
+    model.updateWorldMatrix(true, true);
+    const scaledBounds = new THREE.Box3().setFromObject(model);
+    const center = scaledBounds.getCenter(new THREE.Vector3());
+    const minY = scaledBounds.min.y;
+    model.position.set(-center.x, -minY, -center.z);
   }
 
   private fitBackPortalModel(model: THREE.Object3D): void {
