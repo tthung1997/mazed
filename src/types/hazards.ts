@@ -1,6 +1,7 @@
-export type HazardType = 'one_way_door' | 'locked_door';
+export type HazardType = 'one_way_door' | 'pressure_plate' | 'pressure_plate_door' | 'locked_door';
 
 export type CardinalDirection = 'north' | 'south' | 'east' | 'west';
+export type DoorPassageAxis = 'horizontal' | 'vertical';
 
 export interface OneWayDoorHazard {
   id: string;
@@ -12,6 +13,32 @@ export interface OneWayDoorHazard {
   };
 }
 
+export interface PressurePlateHazard {
+  id: string;
+  type: 'pressure_plate';
+  tileX: number;
+  tileY: number;
+  meta: {
+    linkedDoorId: string;
+    colorKey: string;
+    active: boolean;
+  };
+}
+
+export interface PressurePlateDoorHazard {
+  id: string;
+  type: 'pressure_plate_door';
+  tileX: number;
+  tileY: number;
+  meta: {
+    colorKey: string;
+    passageAxis: DoorPassageAxis;
+    closeDelaySeconds: number;
+    open: boolean;
+    closeTimerSeconds: number | null;
+  };
+}
+
 export interface LockedDoorHazard {
   id: string;
   type: 'locked_door';
@@ -19,8 +46,9 @@ export interface LockedDoorHazard {
   tileY: number;
   meta: {
     requiresKey: boolean;
+    passageAxis: DoorPassageAxis;
     open: boolean;
   };
 }
 
-export type HazardInstance = OneWayDoorHazard | LockedDoorHazard;
+export type HazardInstance = OneWayDoorHazard | PressurePlateHazard | PressurePlateDoorHazard | LockedDoorHazard;

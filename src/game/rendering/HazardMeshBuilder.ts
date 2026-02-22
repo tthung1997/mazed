@@ -17,6 +17,40 @@ interface OneWaySlideState {
   baseY: number;
 }
 
+interface HazardColorSet {
+  door: string;
+  doorEmissive: string;
+  plate: string;
+  plateEmissive: string;
+}
+
+const HAZARD_COLOR_MAP: Record<string, HazardColorSet> = {
+  amber: {
+    door: '#fbbf24',
+    doorEmissive: '#f59e0b',
+    plate: '#fde68a',
+    plateEmissive: '#f59e0b',
+  },
+  cyan: {
+    door: '#67e8f9',
+    doorEmissive: '#06b6d4',
+    plate: '#cffafe',
+    plateEmissive: '#0891b2',
+  },
+  violet: {
+    door: '#c4b5fd',
+    doorEmissive: '#8b5cf6',
+    plate: '#e9d5ff',
+    plateEmissive: '#7c3aed',
+  },
+  emerald: {
+    door: '#86efac',
+    doorEmissive: '#22c55e',
+    plate: '#d1fae5',
+    plateEmissive: '#10b981',
+  },
+};
+
 function directionYaw(direction: 'north' | 'south' | 'east' | 'west'): number {
   switch (direction) {
     case 'north':
@@ -55,11 +89,11 @@ export class HazardMeshBuilder {
     return { root, meshByHazardId, hazardById };
   }
 
-  triggerOneWayDoorOpen(renderData: HazardRenderData, hazardId: string): void {
+  triggerDoorOpen(renderData: HazardRenderData, hazardId: string): void {
     const hazard = renderData.hazardById.get(hazardId);
     const mesh = renderData.meshByHazardId.get(hazardId);
 
-    if (!hazard || hazard.type !== 'one_way_door' || !mesh) {
+    if (!hazard || !this.isSlidingDoorHazard(hazard) || !mesh) {
       return;
     }
 
@@ -82,10 +116,10 @@ export class HazardMeshBuilder {
     existing.progress = 1 - existing.progress;
   }
 
-  triggerOneWayDoorClose(renderData: HazardRenderData, hazardId: string): void {
+  triggerDoorClose(renderData: HazardRenderData, hazardId: string): void {
     const hazard = renderData.hazardById.get(hazardId);
 
-    if (!hazard || hazard.type !== 'one_way_door') {
+    if (!hazard || !this.isSlidingDoorHazard(hazard)) {
       return;
     }
 
@@ -102,6 +136,14 @@ export class HazardMeshBuilder {
     existing.phase = 'closing';
   }
 
+  triggerOneWayDoorOpen(renderData: HazardRenderData, hazardId: string): void {
+    this.triggerDoorOpen(renderData, hazardId);
+  }
+
+  triggerOneWayDoorClose(renderData: HazardRenderData, hazardId: string): void {
+    this.triggerDoorClose(renderData, hazardId);
+  }
+
   updateDoorAnimations(renderData: HazardRenderData, dtSeconds: number): void {
     if (dtSeconds <= 0 || this.oneWaySlideStates.size === 0) {
       return;
@@ -114,12 +156,12 @@ export class HazardMeshBuilder {
       const hazard = renderData.hazardById.get(hazardId);
       const mesh = renderData.meshByHazardId.get(hazardId);
 
-      if (!hazard || hazard.type !== 'one_way_door' || !mesh) {
+      if (!hazard || !this.isSlidingDoorHazard(hazard) || !mesh) {
         completed.push(hazardId);
         continue;
       }
 
-      const baseYaw = directionYaw(hazard.meta.allowedDirection);
+      const baseYaw = this.getDoorYaw(hazard);
       mesh.rotation.y = baseYaw;
 
       if (slideState.phase === 'opening') {
@@ -185,6 +227,10 @@ export class HazardMeshBuilder {
 
   applyDoorModelTemplate(renderData: HazardRenderData, template: THREE.Object3D): void {
     for (const [hazardId, hazard] of renderData.hazardById) {
+      if (!this.isDoorHazard(hazard)) {
+        continue;
+      }
+
       const existing = renderData.meshByHazardId.get(hazardId);
       if (!existing) {
         continue;
@@ -197,6 +243,9 @@ export class HazardMeshBuilder {
 
       if (hazard.type === 'locked_door') {
         this.tintModel(model, '#fca5a5', '#ef4444', 0.2);
+      } else if (hazard.type === 'pressure_plate_door') {
+        const colors = this.getColorSet(hazard.meta.colorKey);
+        this.tintModel(model, colors.door, colors.doorEmissive, 0.2);
       }
 
       renderData.root.remove(existing);
@@ -219,6 +268,40 @@ export class HazardMeshBuilder {
       return group;
     }
 
+    if (hazard.type === 'pressure_plate_door') {
+      const colors = this.getColorSet(hazard.meta.colorKey);
+      const group = new THREE.Group();
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(0.44, 0.52, 0.11),
+        new THREE.MeshStandardMaterial({
+          color: colors.door,
+          emissive: colors.doorEmissive,
+          emissiveIntensity: 0.2,
+          roughness: 0.82,
+        }),
+      );
+      door.position.y = 0.26;
+      group.add(door);
+      return group;
+    }
+
+    if (hazard.type === 'pressure_plate') {
+      const colors = this.getColorSet(hazard.meta.colorKey);
+      const group = new THREE.Group();
+      const plateBase = new THREE.Mesh(
+        new THREE.BoxGeometry(0.72, 0.06, 0.72),
+        new THREE.MeshStandardMaterial({
+          color: colors.plate,
+          emissive: colors.plateEmissive,
+          emissiveIntensity: 0.16,
+          roughness: 0.8,
+        }),
+      );
+      plateBase.position.y = 0.03;
+      group.add(plateBase);
+      return group;
+    }
+
     const group = new THREE.Group();
     const lockedDoor = new THREE.Mesh(
       new THREE.BoxGeometry(0.44, 0.52, 0.11),
@@ -230,16 +313,30 @@ export class HazardMeshBuilder {
   }
 
   private applyDoorTransform(mesh: THREE.Object3D, hazard: HazardInstance, worldY: number): void {
+    if (hazard.type === 'pressure_plate') {
+      mesh.position.set(hazard.tileX + 0.5, 0, hazard.tileY + 0.5);
+      mesh.rotation.set(0, 0, 0);
+      return;
+    }
+
     mesh.position.set(hazard.tileX + 0.5, worldY, hazard.tileY + 0.5);
     mesh.rotation.set(0, this.getDoorYaw(hazard), 0);
   }
 
   private getDoorYaw(hazard: HazardInstance): number {
-    if (hazard.type !== 'one_way_door') {
-      return 0;
+    if (hazard.type === 'one_way_door') {
+      return directionYaw(hazard.meta.allowedDirection);
     }
 
-    return directionYaw(hazard.meta.allowedDirection);
+    if (hazard.type === 'pressure_plate_door') {
+      return hazard.meta.passageAxis === 'horizontal' ? 0 : Math.PI * 0.5;
+    }
+
+    if (hazard.type === 'locked_door') {
+      return hazard.meta.passageAxis === 'horizontal' ? 0 : Math.PI * 0.5;
+    }
+
+    return 0;
   }
 
   private alignModelToHazardTileCenter(model: THREE.Object3D, hazard: HazardInstance, worldY: number): void {
@@ -253,6 +350,20 @@ export class HazardMeshBuilder {
     const deltaZ = targetZ - center.z;
 
     model.position.set(model.position.x + deltaX, worldY, model.position.z + deltaZ);
+  }
+
+  private getColorSet(colorKey: string): HazardColorSet {
+    return HAZARD_COLOR_MAP[colorKey] ?? HAZARD_COLOR_MAP.amber;
+  }
+
+  private isSlidingDoorHazard(
+    hazard: HazardInstance,
+  ): hazard is Extract<HazardInstance, { type: 'one_way_door' | 'pressure_plate_door' }> {
+    return hazard.type === 'one_way_door' || hazard.type === 'pressure_plate_door';
+  }
+
+  private isDoorHazard(hazard: HazardInstance): boolean {
+    return hazard.type === 'one_way_door' || hazard.type === 'locked_door' || hazard.type === 'pressure_plate_door';
   }
 
   private tintModel(model: THREE.Object3D, color: string, emissive: string, emissiveIntensity: number): void {

@@ -137,6 +137,46 @@ function getLockedDoorCount(mazeNumber: number): number {
   return 2;
 }
 
+function getPressurePlatePairCount(mazeNumber: number, random: SeededRandom): number {
+  if (mazeNumber <= 10) {
+    return 0;
+  }
+
+  if (mazeNumber <= 15) {
+    return 1;
+  }
+
+  if (mazeNumber <= 20) {
+    return random.nextInt(1, 2);
+  }
+
+  return random.nextInt(2, 3);
+}
+
+const PRESSURE_PLATE_DELAY_SECONDS = 2.8;
+const PRESSURE_PLATE_LINK_RADIUS = 5;
+const PRESSURE_PLATE_COLOR_KEYS = ['amber', 'cyan', 'violet', 'emerald'];
+
+function getDoorPassageAxis(maze: MazeInstance, tile: TilePoint, random: SeededRandom): 'horizontal' | 'vertical' {
+  const neighbors = getPassableNeighbors(maze, tile);
+  const hasEast = neighbors.some((n) => n.direction === 'east');
+  const hasWest = neighbors.some((n) => n.direction === 'west');
+  const hasNorth = neighbors.some((n) => n.direction === 'north');
+  const hasSouth = neighbors.some((n) => n.direction === 'south');
+  const hasHorizontal = hasEast && hasWest;
+  const hasVertical = hasNorth && hasSouth;
+
+  if (hasHorizontal && !hasVertical) {
+    return 'horizontal';
+  }
+
+  if (hasVertical && !hasHorizontal) {
+    return 'vertical';
+  }
+
+  return random.pick(['horizontal', 'vertical']);
+}
+
 export class HazardSpawner {
   spawnHazards(maze: MazeInstance): HazardInstance[] {
     const random = new SeededRandom(`${maze.seed}:hazards`);
@@ -178,6 +218,8 @@ export class HazardSpawner {
     });
 
     const lockedDoorCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
+    const pressurePlateCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
+    const pressureDoorCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
     const occupied = new Set<string>();
     const hazards: HazardInstance[] = [];
 
@@ -212,6 +254,73 @@ export class HazardSpawner {
       });
     }
 
+    const pressurePlateCount = getPressurePlatePairCount(maze.mazeNumber, random);
+    const shuffledPressurePlates = shuffleTiles(pressurePlateCandidates, random);
+
+    for (const plateTile of shuffledPressurePlates) {
+      if (hazards.filter((hazard) => hazard.type === 'pressure_plate').length >= pressurePlateCount) {
+        break;
+      }
+
+      const plateKey = tileKey(plateTile);
+      if (occupied.has(plateKey)) {
+        continue;
+      }
+
+      const availableDoors = pressureDoorCandidates.filter((doorTile) => {
+        const doorKey = tileKey(doorTile);
+
+        if (occupied.has(doorKey)) {
+          return false;
+        }
+
+        if (doorTile.x === plateTile.x && doorTile.y === plateTile.y) {
+          return false;
+        }
+
+        const manhattanDistance = Math.abs(doorTile.x - plateTile.x) + Math.abs(doorTile.y - plateTile.y);
+        return manhattanDistance <= PRESSURE_PLATE_LINK_RADIUS;
+      });
+
+      if (availableDoors.length === 0) {
+        continue;
+      }
+
+      const selectedDoorTile = random.pick(availableDoors);
+      const colorKey = random.pick(PRESSURE_PLATE_COLOR_KEYS);
+      const passageAxis = getDoorPassageAxis(maze, selectedDoorTile, random);
+      const pressureDoorId = `hazard_${maze.mazeNumber}_${hazards.length}`;
+
+      occupied.add(tileKey(selectedDoorTile));
+      hazards.push({
+        id: pressureDoorId,
+        type: 'pressure_plate_door',
+        tileX: selectedDoorTile.x,
+        tileY: selectedDoorTile.y,
+        meta: {
+          colorKey,
+          passageAxis,
+          closeDelaySeconds: PRESSURE_PLATE_DELAY_SECONDS,
+          open: false,
+          closeTimerSeconds: null,
+        },
+      });
+
+      const pressurePlateId = `hazard_${maze.mazeNumber}_${hazards.length}`;
+      occupied.add(plateKey);
+      hazards.push({
+        id: pressurePlateId,
+        type: 'pressure_plate',
+        tileX: plateTile.x,
+        tileY: plateTile.y,
+        meta: {
+          linkedDoorId: pressureDoorId,
+          colorKey,
+          active: false,
+        },
+      });
+    }
+
     const lockedDoorCount = getLockedDoorCount(maze.mazeNumber);
     const shuffledLocked = shuffleTiles(lockedDoorCandidates, random);
 
@@ -226,6 +335,7 @@ export class HazardSpawner {
       }
 
       occupied.add(key);
+      const passageAxis = getDoorPassageAxis(maze, tile, random);
       hazards.push({
         id: `hazard_${maze.mazeNumber}_${hazards.length}`,
         type: 'locked_door',
@@ -233,6 +343,7 @@ export class HazardSpawner {
         tileY: tile.y,
         meta: {
           requiresKey: true,
+          passageAxis,
           open: false,
         },
       });

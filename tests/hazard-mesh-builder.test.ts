@@ -49,7 +49,7 @@ describe('HazardMeshBuilder', () => {
         type: 'locked_door',
         tileX: 7,
         tileY: 2,
-        meta: { requiresKey: true, open: false },
+        meta: { requiresKey: true, passageAxis: 'vertical', open: false },
       },
     ];
 
@@ -78,7 +78,7 @@ describe('HazardMeshBuilder', () => {
         type: 'locked_door',
         tileX: 2,
         tileY: 1,
-        meta: { requiresKey: true, open: false },
+        meta: { requiresKey: true, passageAxis: 'horizontal', open: false },
       },
     ];
 
@@ -116,5 +116,59 @@ describe('HazardMeshBuilder', () => {
     builder.triggerOneWayDoorOpen(renderData, 'one-way');
     builder.updateDoorAnimations(renderData, 0.1);
     expect(lockedModel?.rotation.y).toBeCloseTo(lockedBaseYaw, 5);
+  });
+
+  it('keeps pressure plate mesh and tints linked pressure door with matching color key', () => {
+    const builder = new HazardMeshBuilder();
+    const hazards: HazardInstance[] = [
+      {
+        id: 'pressure-door',
+        type: 'pressure_plate_door',
+        tileX: 5,
+        tileY: 5,
+        meta: {
+          colorKey: 'violet',
+          passageAxis: 'vertical',
+          closeDelaySeconds: 2,
+          open: false,
+          closeTimerSeconds: null,
+        },
+      },
+      {
+        id: 'pressure-plate',
+        type: 'pressure_plate',
+        tileX: 3,
+        tileY: 5,
+        meta: {
+          linkedDoorId: 'pressure-door',
+          colorKey: 'violet',
+          active: false,
+        },
+      },
+    ];
+
+    const renderData = builder.build(hazards);
+    const template = new THREE.Group();
+    template.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial()));
+
+    builder.applyDoorModelTemplate(renderData, template);
+
+    const pressureDoorModel = renderData.meshByHazardId.get('pressure-door');
+    const pressurePlateModel = renderData.meshByHazardId.get('pressure-plate');
+
+    expect(pressureDoorModel).toBeTruthy();
+    expect(pressurePlateModel).toBeTruthy();
+    expect(pressurePlateModel?.position.y).toBeCloseTo(0, 5);
+    expect(pressureDoorModel?.rotation.y).toBeCloseTo(Math.PI * 0.5, 5);
+
+    let tintedMaterial: THREE.MeshStandardMaterial | null = null;
+    pressureDoorModel?.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.material instanceof THREE.MeshStandardMaterial) {
+        tintedMaterial = node.material;
+      }
+    });
+
+    expect(tintedMaterial).toBeTruthy();
+    expect(tintedMaterial?.color.getHexString()).toBe('c4b5fd');
   });
 });

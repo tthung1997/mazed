@@ -237,8 +237,8 @@ export class GameApp {
       if (canPass && this.hazardRenderData) {
         const hazard = this.hazardSystem.getHazardAtTile(toTile.x, toTile.y);
 
-        if (hazard?.type === 'one_way_door') {
-          this.hazardMeshBuilder.triggerOneWayDoorOpen(this.hazardRenderData, hazard.id);
+        if (hazard?.type === 'one_way_door' || hazard?.type === 'pressure_plate_door') {
+          this.hazardMeshBuilder.triggerDoorOpen(this.hazardRenderData, hazard.id);
         }
       }
 
@@ -258,12 +258,23 @@ export class GameApp {
       y: Math.floor(this.player.position.z),
     };
 
+    const hazardDoorChanges = this.hazardSystem.update(dt, tile);
+    if (this.hazardRenderData && hazardDoorChanges.length > 0) {
+      for (const change of hazardDoorChanges) {
+        if (change.open) {
+          this.hazardMeshBuilder.triggerDoorOpen(this.hazardRenderData, change.hazardId);
+        } else {
+          this.hazardMeshBuilder.triggerDoorClose(this.hazardRenderData, change.hazardId);
+        }
+      }
+    }
+
     if (tile.x !== this.previousPlayerTile.x || tile.y !== this.previousPlayerTile.y) {
       if (this.hazardRenderData && this.previousPlayerTile.x >= 0 && this.previousPlayerTile.y >= 0) {
         const previousHazard = this.hazardSystem.getHazardAtTile(this.previousPlayerTile.x, this.previousPlayerTile.y);
 
-        if (previousHazard?.type === 'one_way_door') {
-          this.hazardMeshBuilder.triggerOneWayDoorClose(this.hazardRenderData, previousHazard.id);
+        if (previousHazard?.type === 'one_way_door' || previousHazard?.type === 'pressure_plate_door') {
+          this.hazardMeshBuilder.triggerDoorClose(this.hazardRenderData, previousHazard.id);
         }
       }
 

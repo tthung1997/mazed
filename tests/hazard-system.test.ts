@@ -55,7 +55,7 @@ describe('HazardSystem', () => {
         type: 'locked_door',
         tileX: 3,
         tileY: 3,
-        meta: { requiresKey: true, open: false },
+        meta: { requiresKey: true, passageAxis: 'horizontal', open: false },
       },
     ]);
 
@@ -97,7 +97,7 @@ describe('HazardSystem', () => {
         type: 'locked_door',
         tileX: 4,
         tileY: 4,
-        meta: { requiresKey: true, open: false },
+        meta: { requiresKey: true, passageAxis: 'vertical', open: false },
       },
     ]);
 
@@ -114,5 +114,70 @@ describe('HazardSystem', () => {
     );
 
     expect(canPass).toBe(false);
+  });
+
+  it('opens pressure plate door while standing on plate, then relocks after delay when leaving', () => {
+    const system = createSystemWithHazards([
+      {
+        id: 'pressure-door',
+        type: 'pressure_plate_door',
+        tileX: 6,
+        tileY: 4,
+        meta: {
+          colorKey: 'cyan',
+          passageAxis: 'horizontal',
+          closeDelaySeconds: 2,
+          open: false,
+          closeTimerSeconds: null,
+        },
+      },
+      {
+        id: 'plate',
+        type: 'pressure_plate',
+        tileX: 4,
+        tileY: 4,
+        meta: {
+          linkedDoorId: 'pressure-door',
+          colorKey: 'cyan',
+          active: false,
+        },
+      },
+    ]);
+
+    const enteredPlate = system.update(0.016, { x: 4, y: 4 });
+    expect(enteredPlate).toEqual([{ hazardId: 'pressure-door', open: true }]);
+
+    const immediatePass = system.checkPassThrough(
+      { x: 5, y: 4 },
+      { x: 6, y: 4 },
+      'east',
+      {
+        hasSkeletonKey: false,
+        consumeSkeletonKey: () => {
+          throw new Error('unexpected key consumption');
+        },
+      },
+    );
+    expect(immediatePass).toBe(true);
+
+    system.update(0.016, { x: 5, y: 4 });
+    const notClosedYet = system.update(1, { x: 5, y: 4 });
+    expect(notClosedYet).toHaveLength(0);
+
+    const closedAfterDelay = system.update(1.01, { x: 5, y: 4 });
+    expect(closedAfterDelay).toEqual([{ hazardId: 'pressure-door', open: false }]);
+
+    const blockedAfterRelock = system.checkPassThrough(
+      { x: 5, y: 4 },
+      { x: 6, y: 4 },
+      'east',
+      {
+        hasSkeletonKey: false,
+        consumeSkeletonKey: () => {
+          throw new Error('unexpected key consumption');
+        },
+      },
+    );
+    expect(blockedAfterRelock).toBe(false);
   });
 });

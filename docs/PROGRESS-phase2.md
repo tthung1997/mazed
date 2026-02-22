@@ -14,7 +14,7 @@ Phase 2 is **partially complete**.
 - ✅ Item spawning/pickup foundation is implemented
 - ✅ Tool system baseline is implemented
 - ✅ Hazard MVP (one-way + locked doors) is implemented
-- ❌ Pressure plates are not implemented yet
+- ✅ Pressure plates + linked delayed doors are implemented
 - ❌ Audio/particles/minimap/inventory polish systems are not implemented yet
 
 ---
@@ -48,8 +48,7 @@ Phase 2 is **partially complete**.
 ## 3) Incomplete vs Phase 2 TDD
 
 ### 3.1 Gameplay Gaps
-- [ ] Pressure plate hazards (spawn + runtime behavior + tests)
-- [ ] Linked door toggle behavior from pressure plates
+- [ ] Pressure plate depression animation polish (active/inactive Y-lerp)
 
 ### 3.2 Tools/UX Gaps
 - [ ] Full 5-tool runtime flow finalized (unlock/use path for all tools)
@@ -70,7 +69,7 @@ Phase 2 is **partially complete**.
 
 To finish Phase 2 with minimal risk, implement in this order:
 
-1. **Pressure plates** (types → spawner → `HazardSystem` behavior → tests)
+1. **Pressure plate animation polish** (plate depression lerp + feedback tune)
 2. **Tool completeness pass** (ensure all 5 tool flows are actually playable)
 3. **Compass + minimap UX** (visible, testable player feedback)
 4. **AudioManager integration**
@@ -175,3 +174,30 @@ Use this block at the end of each future session:
 - New completed items: Door visuals now remain centered on hazard tiles even when source glTF template pivots are asymmetric.
 - Remaining blockers: Core Phase 2 blockers unchanged (pressure plates and remaining polish systems).
 - Next single step: Implement pressure plate hazards (types, deterministic spawn integration, runtime behavior, and tests).
+
+### Session Update — 2026-02-22
+- Scope: Implemented pressure plate hazards with linked doors, delayed relock timing, color-matched visuals, and shared slide door animation behavior.
+- Files changed: `src/types/hazards.ts`, `src/game/maze/HazardSpawner.ts`, `src/game/systems/HazardSystem.ts`, `src/game/rendering/HazardMeshBuilder.ts`, `src/game/core/GameApp.ts`, `tests/hazard-system.test.ts`, `tests/hazard-spawner.test.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (41/41 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Added deterministic pressure plate + pressure door pair spawning, linked runtime plate activation with delayed door relock, and reused shared door positioning/slide animation flow for pressure doors.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Fixed pressure plate door orientation so doors align wall-to-wall based on corridor axis instead of always rendering horizontal.
+- Files changed: `src/types/hazards.ts`, `src/game/maze/HazardSpawner.ts`, `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-system.test.ts`, `tests/hazard-spawner.test.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (41/41 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Pressure-door metadata now stores deterministic passage axis from neighboring tiles; renderer applies axis-based yaw so vertical corridors render vertical doors.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Fixed locked-door orientation to use corridor axis metadata instead of fixed yaw, ensuring all door hazards span wall-to-wall.
+- Files changed: `src/types/hazards.ts`, `src/game/maze/HazardSpawner.ts`, `src/game/rendering/HazardMeshBuilder.ts`, `tests/hazard-system.test.ts`, `tests/hazard-spawner.test.ts`, `tests/hazard-mesh-builder.test.ts`
+- Tests run: `npm run test` (42/42 passing)
+- Build result: `npm run build` (passing)
+- New completed items: Locked doors now spawn with deterministic `passageAxis`; renderer applies axis-based yaw for horizontal/vertical corridor alignment.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
