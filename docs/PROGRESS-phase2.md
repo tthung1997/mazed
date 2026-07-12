@@ -49,7 +49,6 @@ Phase 2 is **partially complete**.
 
 ### 3.1 Gameplay Gaps
 - [ ] Pressure plate depression animation polish (active/inactive Y-lerp)
-
 ### 3.2 Tools/UX Gaps
 - [ ] Full 5-tool runtime flow finalized (unlock/use path for all tools)
 - [ ] Compass gameplay-facing overlay
@@ -217,5 +216,14 @@ Use this block at the end of each future session:
 - Tests run: `npm run test` (42/42 passing)
 - Build result: `npm run build` (passing)
 - New completed items: Locked and pressure-plate doors share the same axis metadata but now use the model-correct yaw mapping again.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-07-12
+- Scope: Fixed a one-way door soft-lock — doors could funnel the player into a dead-end region with no path back or to the exit.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (43/43 passing)
+- Build result: `npm run build` (passing)
+- New completed items: One-way door placement now runs a directed-escapability check (every entry-reachable tile must retain a path to the exit); a door orientation is only committed if it keeps the maze escapable, otherwise the tile is skipped. Added regression test across multiple seeds/maze numbers.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.

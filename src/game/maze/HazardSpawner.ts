@@ -40,6 +40,110 @@ function getPassableNeighbors(maze: MazeInstance, tile: TilePoint): Array<{ dire
   return neighbors;
 }
 
+const OPPOSITE_DIRECTION: Record<CardinalDirection, CardinalDirection> = {
+  east: 'west',
+  west: 'east',
+  north: 'south',
+  south: 'north',
+};
+
+function directionBetween(from: TilePoint, to: TilePoint): CardinalDirection | null {
+  if (to.x > from.x) {
+    return 'east';
+  }
+
+  if (to.x < from.x) {
+    return 'west';
+  }
+
+  if (to.y > from.y) {
+    return 'south';
+  }
+
+  if (to.y < from.y) {
+    return 'north';
+  }
+
+  return null;
+}
+
+// A move into `to` is blocked only when `to` is a one-way door whose allowed
+// direction does not match the direction of travel.
+function isMoveAllowed(
+  maze: MazeInstance,
+  from: TilePoint,
+  to: TilePoint,
+  oneWayByKey: Map<string, CardinalDirection>,
+): boolean {
+  if (!isPassable(maze, to.x, to.y)) {
+    return false;
+  }
+
+  const doorDirection = oneWayByKey.get(tileKey(to));
+  if (!doorDirection) {
+    return true;
+  }
+
+  return doorDirection === directionBetween(from, to);
+}
+
+// Directed reachability over the maze graph. When `reverse` is true it walks
+// predecessors, yielding the set of tiles that can *reach* `start`.
+function reachableTiles(
+  maze: MazeInstance,
+  start: TilePoint,
+  oneWayByKey: Map<string, CardinalDirection>,
+  reverse: boolean,
+): Set<string> {
+  const visited = new Set<string>([tileKey(start)]);
+  const queue: TilePoint[] = [start];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    for (const step of CARDINAL_STEPS) {
+      const neighbor = { x: current.x + step.x, y: current.y + step.y };
+
+      if (!isPassable(maze, neighbor.x, neighbor.y)) {
+        continue;
+      }
+
+      const neighborKey = tileKey(neighbor);
+      if (visited.has(neighborKey)) {
+        continue;
+      }
+
+      const allowed = reverse
+        ? isMoveAllowed(maze, neighbor, current, oneWayByKey)
+        : isMoveAllowed(maze, current, neighbor, oneWayByKey);
+
+      if (!allowed) {
+        continue;
+      }
+
+      visited.add(neighborKey);
+      queue.push(neighbor);
+    }
+  }
+
+  return visited;
+}
+
+// Guarantees no one-way door can strand the player: every tile still reachable
+// from the entry must retain a directed path to the exit.
+function oneWayLayoutIsEscapable(maze: MazeInstance, oneWayByKey: Map<string, CardinalDirection>): boolean {
+  const reachableFromEntry = reachableTiles(maze, maze.entry, oneWayByKey, false);
+  const canReachExit = reachableTiles(maze, maze.exit, oneWayByKey, true);
+
+  for (const key of reachableFromEntry) {
+    if (!canReachExit.has(key)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function getCorridorAxis(maze: MazeInstance, tile: TilePoint): 'horizontal' | 'vertical' | null {
   const neighbors = getPassableNeighbors(maze, tile);
   const hasEast = neighbors.some((n) => n.direction === 'east');
@@ -229,20 +333,39 @@ export class HazardSpawner {
 
     const oneWayCount = getOneWayCount(maze.mazeNumber, random);
     const shuffledOneWay = shuffleTiles(oneWayCandidates, random);
+    const oneWayByKey = new Map<string, CardinalDirection>();
 
     for (const tile of shuffledOneWay) {
       if (hazards.filter((hazard) => hazard.type === 'one_way_door').length >= oneWayCount) {
         break;
       }
 
+      const key = tileKey(tile);
+      if (occupied.has(key)) {
+        continue;
+      }
+
       const neighbors = getPassableNeighbors(maze, tile);
       const horizontal = neighbors.some((n) => n.direction === 'east') && neighbors.some((n) => n.direction === 'west');
-      const allowedDirection: CardinalDirection = horizontal
+      const primaryDirection: CardinalDirection = horizontal
         ? random.pick<CardinalDirection>(['east', 'west'])
         : random.pick<CardinalDirection>(['north', 'south']);
 
-      const key = tileKey(tile);
-      if (occupied.has(key)) {
+      // Try the randomly chosen orientation first, then its opposite, keeping
+      // only a direction that leaves the maze fully escapable.
+      let allowedDirection: CardinalDirection | null = null;
+      for (const candidateDirection of [primaryDirection, OPPOSITE_DIRECTION[primaryDirection]]) {
+        oneWayByKey.set(key, candidateDirection);
+
+        if (oneWayLayoutIsEscapable(maze, oneWayByKey)) {
+          allowedDirection = candidateDirection;
+          break;
+        }
+
+        oneWayByKey.delete(key);
+      }
+
+      if (!allowedDirection) {
         continue;
       }
 

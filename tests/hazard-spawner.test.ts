@@ -198,4 +198,70 @@ describe('HazardSpawner', () => {
       }
     }
   });
+
+  it('never places a one-way door that can strand the player away from the exit', () => {
+    const generator = new MazeGenerator();
+    const spawner = new HazardSpawner();
+
+    const directionBetween = (from: TilePoint, to: TilePoint): string | null => {
+      if (to.x > from.x) return 'east';
+      if (to.x < from.x) return 'west';
+      if (to.y > from.y) return 'south';
+      if (to.y < from.y) return 'north';
+      return null;
+    };
+
+    for (const [seed, mazeNumber] of [
+      ['softlock-a', 12],
+      ['softlock-b', 17],
+      ['softlock-c', 21],
+      ['softlock-d', 25],
+      ['softlock-e', 30],
+    ] as const) {
+      const maze = generator.generate(getMazeParams(seed, mazeNumber));
+      const hazards = spawner.spawnHazards(maze);
+      const oneWayByKey = new Map<string, string>();
+
+      for (const hazard of hazards) {
+        if (hazard.type === 'one_way_door') {
+          oneWayByKey.set(tileKey({ x: hazard.tileX, y: hazard.tileY }), hazard.meta.allowedDirection);
+        }
+      }
+
+      const isPassable = (x: number, y: number): boolean =>
+        x >= 0 && y >= 0 && x < maze.width && y < maze.height && maze.cells[y][x].type !== 'wall';
+
+      const moveAllowed = (from: TilePoint, to: TilePoint): boolean => {
+        if (!isPassable(to.x, to.y)) return false;
+        const doorDir = oneWayByKey.get(tileKey(to));
+        return !doorDir || doorDir === directionBetween(from, to);
+      };
+
+      const reach = (start: TilePoint, reverse: boolean): Set<string> => {
+        const visited = new Set<string>([tileKey(start)]);
+        const queue: TilePoint[] = [start];
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          for (const step of CARDINAL_STEPS) {
+            const neighbor = { x: current.x + step.x, y: current.y + step.y };
+            if (!isPassable(neighbor.x, neighbor.y)) continue;
+            const key = tileKey(neighbor);
+            if (visited.has(key)) continue;
+            const allowed = reverse ? moveAllowed(neighbor, current) : moveAllowed(current, neighbor);
+            if (!allowed) continue;
+            visited.add(key);
+            queue.push(neighbor);
+          }
+        }
+        return visited;
+      };
+
+      const reachableFromEntry = reach(maze.entry, false);
+      const canReachExit = reach(maze.exit, true);
+
+      for (const key of reachableFromEntry) {
+        expect(canReachExit.has(key)).toBe(true);
+      }
+    }
+  });
 });
