@@ -266,4 +266,103 @@ describe('HazardSpawner', () => {
       }
     }
   });
+
+  it('only places doors on strict straight corridors (never intersections or corners)', () => {
+    const generator = new MazeGenerator();
+    const spawner = new HazardSpawner();
+
+    for (const [seed, mazeNumber] of [
+      ['door-shape-a', 12],
+      ['door-shape-b', 18],
+      ['door-shape-c', 24],
+      ['door-shape-d', 30],
+    ] as const) {
+      const maze = generator.generate(getMazeParams(seed, mazeNumber));
+      const hazards = spawner.spawnHazards(maze);
+      const doors = hazards.filter(
+        (h) => h.type === 'one_way_door' || h.type === 'locked_door' || h.type === 'pressure_plate_door',
+      );
+
+      for (const door of doors) {
+        const hasEast = maze.cells[door.tileY]?.[door.tileX + 1]?.type !== 'wall';
+        const hasWest = maze.cells[door.tileY]?.[door.tileX - 1]?.type !== 'wall';
+        const hasNorth = maze.cells[door.tileY - 1]?.[door.tileX]?.type !== 'wall';
+        const hasSouth = maze.cells[door.tileY + 1]?.[door.tileX]?.type !== 'wall';
+        const passableCount = [hasEast, hasWest, hasNorth, hasSouth].filter(Boolean).length;
+
+        // Exactly two passable neighbors forming an opposite pair.
+        expect(passableCount).toBe(2);
+        expect((hasEast && hasWest) || (hasNorth && hasSouth)).toBe(true);
+      }
+    }
+  });
+
+  it('places pressure doors on loops and keeps the plate reachable without crossing a portal', () => {
+    const generator = new MazeGenerator();
+    const spawner = new HazardSpawner();
+
+    for (const [seed, mazeNumber] of [
+      ['pressure-safe-a', 12],
+      ['pressure-safe-b', 16],
+      ['pressure-safe-c', 21],
+      ['pressure-safe-d', 27],
+    ] as const) {
+      const maze = generator.generate(getMazeParams(seed, mazeNumber));
+      const hazards = spawner.spawnHazards(maze);
+      const doorsById = new Map(
+        hazards.filter((h) => h.type === 'pressure_plate_door').map((h) => [h.id, h]),
+      );
+      const plates = hazards.filter((h) => h.type === 'pressure_plate');
+
+      const isPassable = (x: number, y: number): boolean =>
+        x >= 0 && y >= 0 && x < maze.width && y < maze.height && maze.cells[y][x].type !== 'wall';
+      const isPortal = (x: number, y: number): boolean =>
+        (x === maze.entry.x && y === maze.entry.y) || (x === maze.exit.x && y === maze.exit.y);
+      const countPassable = (): number => {
+        let n = 0;
+        for (let y = 0; y < maze.height; y += 1) for (let x = 0; x < maze.width; x += 1) if (isPassable(x, y)) n += 1;
+        return n;
+      };
+
+      for (const plate of plates) {
+        const door = doorsById.get(plate.meta.linkedDoorId)!;
+        const doorKey = tileKey({ x: door.tileX, y: door.tileY });
+
+        // #1: door not an articulation point — removing it keeps the maze connected.
+        const visited = new Set<string>([tileKey(maze.entry)]);
+        const queue: TilePoint[] = [maze.entry];
+        while (queue.length > 0) {
+          const cur = queue.shift()!;
+          for (const step of CARDINAL_STEPS) {
+            const n = { x: cur.x + step.x, y: cur.y + step.y };
+            const k = tileKey(n);
+            if (k === doorKey || visited.has(k) || !isPassable(n.x, n.y)) continue;
+            visited.add(k);
+            queue.push(n);
+          }
+        }
+        expect(visited.size).toBe(countPassable() - 1);
+
+        // #2: plate reaches its door without stepping on a portal tile.
+        const target = tileKey({ x: door.tileX, y: door.tileY });
+        const seen = new Set<string>([tileKey({ x: plate.tileX, y: plate.tileY })]);
+        const q: TilePoint[] = [{ x: plate.tileX, y: plate.tileY }];
+        let reached = false;
+        while (q.length > 0) {
+          const cur = q.shift()!;
+          for (const step of CARDINAL_STEPS) {
+            const n = { x: cur.x + step.x, y: cur.y + step.y };
+            const k = tileKey(n);
+            if (seen.has(k) || !isPassable(n.x, n.y)) continue;
+            if (k === target) { reached = true; break; }
+            if (isPortal(n.x, n.y)) continue;
+            seen.add(k);
+            q.push(n);
+          }
+          if (reached) break;
+        }
+        expect(reached).toBe(true);
+      }
+    }
+  });
 });

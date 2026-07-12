@@ -227,3 +227,15 @@ Use this block at the end of each future session:
 - New completed items: One-way door placement now runs a directed-escapability check requiring every entry-reachable tile to retain a path to BOTH the entry (back portal / backtracking) and the exit; a door orientation is only committed if it keeps the maze escapable, otherwise the tile is skipped. This confines one-way doors to loop structures (no traps, no walled-off regions). Regression test asserts reach-to-entry and reach-to-exit across multiple seeds/maze numbers.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-07-12
+- Scope: Fixed three hazard placement bugs surfaced during pressure-plate playtesting.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (45/45 passing)
+- Build result: `npm run build` (passing)
+- New completed items:
+  1. Pressure-plate doors can no longer soft-lock the player — a door is only placed when removing it keeps the maze fully connected (door sits on a loop, never the sole route into a region).
+  2. Pressure-plate puzzles no longer route through a portal — the plate must reach its linked door via a path that avoids entry/exit tiles.
+  3. Doors no longer spawn on intersections/corners — all door candidates (one-way, locked, pressure) now use a strict straight-corridor test (exactly two opposite passable neighbors), so a door always has a wall on each flank. Removed the looser `getCorridorAxis`.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.

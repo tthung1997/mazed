@@ -146,24 +146,122 @@ function oneWayLayoutIsEscapable(maze: MazeInstance, oneWayByKey: Map<string, Ca
   return true;
 }
 
-function getCorridorAxis(maze: MazeInstance, tile: TilePoint): 'horizontal' | 'vertical' | null {
+function isStraightCorridor(maze: MazeInstance, tile: TilePoint): 'horizontal' | 'vertical' | null {
   const neighbors = getPassableNeighbors(maze, tile);
+
+  if (neighbors.length !== 2) {
+    return null;
+  }
+
   const hasEast = neighbors.some((n) => n.direction === 'east');
   const hasWest = neighbors.some((n) => n.direction === 'west');
   const hasNorth = neighbors.some((n) => n.direction === 'north');
   const hasSouth = neighbors.some((n) => n.direction === 'south');
-  const hasHorizontal = hasEast && hasWest;
-  const hasVertical = hasNorth && hasSouth;
 
-  if (hasHorizontal && !hasVertical) {
+  if (hasEast && hasWest) {
     return 'horizontal';
   }
 
-  if (hasVertical && !hasHorizontal) {
+  if (hasNorth && hasSouth) {
     return 'vertical';
   }
 
   return null;
+}
+
+function isPortalTile(maze: MazeInstance, tile: TilePoint): boolean {
+  return (
+    (tile.x === maze.entry.x && tile.y === maze.entry.y) ||
+    (tile.x === maze.exit.x && tile.y === maze.exit.y)
+  );
+}
+
+function countPassableTiles(maze: MazeInstance): number {
+  let count = 0;
+
+  for (let y = 0; y < maze.height; y += 1) {
+    for (let x = 0; x < maze.width; x += 1) {
+      if (isPassable(maze, x, y)) {
+        count += 1;
+      }
+    }
+  }
+
+  return count;
+}
+
+// True when the maze stays fully connected after treating `removed` as a wall,
+// i.e. the tile is not an articulation point and can never be the sole route
+// into a region (prevents a closing door from trapping the player).
+function removingTileKeepsMazeConnected(maze: MazeInstance, removed: TilePoint): boolean {
+  const removedKey = tileKey(removed);
+
+  if (tileKey(maze.entry) === removedKey) {
+    return false;
+  }
+
+  const total = countPassableTiles(maze);
+  const visited = new Set<string>([tileKey(maze.entry)]);
+  const queue: TilePoint[] = [maze.entry];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    for (const step of CARDINAL_STEPS) {
+      const neighbor = { x: current.x + step.x, y: current.y + step.y };
+      const neighborKey = tileKey(neighbor);
+
+      if (neighborKey === removedKey || visited.has(neighborKey) || !isPassable(maze, neighbor.x, neighbor.y)) {
+        continue;
+      }
+
+      visited.add(neighborKey);
+      queue.push(neighbor);
+    }
+  }
+
+  return visited.size === total - 1;
+}
+
+// True when `to` is reachable from `from` over passable tiles without stepping
+// on a portal tile (so a pressure-plate puzzle never routes through the
+// entry/exit stone, which would trigger a maze transition mid-puzzle).
+function tileReachesTileAvoidingPortals(maze: MazeInstance, from: TilePoint, to: TilePoint): boolean {
+  const fromKey = tileKey(from);
+  const toKey = tileKey(to);
+
+  if (fromKey === toKey) {
+    return true;
+  }
+
+  const visited = new Set<string>([fromKey]);
+  const queue: TilePoint[] = [from];
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+
+    for (const step of CARDINAL_STEPS) {
+      const neighbor = { x: current.x + step.x, y: current.y + step.y };
+      const neighborKey = tileKey(neighbor);
+
+      if (visited.has(neighborKey) || !isPassable(maze, neighbor.x, neighbor.y)) {
+        continue;
+      }
+
+      if (neighborKey === toKey) {
+        return true;
+      }
+
+      if (isPortalTile(maze, neighbor)) {
+        continue;
+      }
+
+      visited.add(neighborKey);
+      queue.push(neighbor);
+    }
+  }
+
+  return false;
 }
 
 function buildShortestPathSet(maze: MazeInstance): Set<string> {
@@ -284,7 +382,7 @@ const PRESSURE_PLATE_LINK_RADIUS = 5;
 const PRESSURE_PLATE_COLOR_KEYS = ['amber', 'cyan', 'violet', 'emerald'];
 
 function getDoorPassageAxis(maze: MazeInstance, tile: TilePoint, random: SeededRandom): 'horizontal' | 'vertical' {
-  return getCorridorAxis(maze, tile) ?? random.pick(['horizontal', 'vertical']);
+  return isStraightCorridor(maze, tile) ?? random.pick(['horizontal', 'vertical']);
 }
 
 export class HazardSpawner {
@@ -312,24 +410,11 @@ export class HazardSpawner {
       }
     }
 
-    const oneWayCandidates = allCandidates.filter((tile) => {
-      const neighbors = getPassableNeighbors(maze, tile);
+    const oneWayCandidates = allCandidates.filter((tile) => isStraightCorridor(maze, tile) !== null);
 
-      if (neighbors.length !== 2) {
-        return false;
-      }
-
-      const hasEast = neighbors.some((n) => n.direction === 'east');
-      const hasWest = neighbors.some((n) => n.direction === 'west');
-      const hasNorth = neighbors.some((n) => n.direction === 'north');
-      const hasSouth = neighbors.some((n) => n.direction === 'south');
-
-      return (hasEast && hasWest) || (hasNorth && hasSouth);
-    });
-
-    const lockedDoorCandidates = allCandidates.filter((tile) => getCorridorAxis(maze, tile) !== null);
+    const lockedDoorCandidates = allCandidates.filter((tile) => isStraightCorridor(maze, tile) !== null);
     const pressurePlateCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
-    const pressureDoorCandidates = allCandidates.filter((tile) => getCorridorAxis(maze, tile) !== null);
+    const pressureDoorCandidates = allCandidates.filter((tile) => isStraightCorridor(maze, tile) !== null);
     const occupied = new Set<string>();
     const hazards: HazardInstance[] = [];
 
@@ -408,7 +493,21 @@ export class HazardSpawner {
         }
 
         const manhattanDistance = Math.abs(doorTile.x - plateTile.x) + Math.abs(doorTile.y - plateTile.y);
-        return manhattanDistance <= PRESSURE_PLATE_LINK_RADIUS;
+        if (manhattanDistance > PRESSURE_PLATE_LINK_RADIUS) {
+          return false;
+        }
+
+        // #1: a closing door must never be the only way in/out of a region.
+        if (!removingTileKeepsMazeConnected(maze, doorTile)) {
+          return false;
+        }
+
+        // #2: the plate must reach its door without crossing a portal tile.
+        if (!tileReachesTileAvoidingPortals(maze, plateTile, doorTile)) {
+          return false;
+        }
+
+        return true;
       });
 
       if (availableDoors.length === 0) {
