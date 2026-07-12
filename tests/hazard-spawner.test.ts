@@ -297,7 +297,7 @@ describe('HazardSpawner', () => {
     }
   });
 
-  it('places pressure doors on loops and keeps the plate reachable without crossing a portal', () => {
+  it('never lets any combination of closable doors strand the player', () => {
     const generator = new MazeGenerator();
     const spawner = new HazardSpawner();
 
@@ -306,6 +306,9 @@ describe('HazardSpawner', () => {
       ['pressure-safe-b', 16],
       ['pressure-safe-c', 21],
       ['pressure-safe-d', 27],
+      ['multi-door-a', 22],
+      ['multi-door-b', 25],
+      ['multi-door-c', 30],
     ] as const) {
       const maze = generator.generate(getMazeParams(seed, mazeNumber));
       const hazards = spawner.spawnHazards(maze);
@@ -318,30 +321,63 @@ describe('HazardSpawner', () => {
         x >= 0 && y >= 0 && x < maze.width && y < maze.height && maze.cells[y][x].type !== 'wall';
       const isPortal = (x: number, y: number): boolean =>
         (x === maze.entry.x && y === maze.entry.y) || (x === maze.exit.x && y === maze.exit.y);
-      const countPassable = (): number => {
-        let n = 0;
-        for (let y = 0; y < maze.height; y += 1) for (let x = 0; x < maze.width; x += 1) if (isPassable(x, y)) n += 1;
-        return n;
+
+      // One-way doors modelled by their allowed travel direction.
+      const oneWayByKey = new Map<string, string>();
+      for (const h of hazards.filter((hz) => hz.type === 'one_way_door')) {
+        oneWayByKey.set(tileKey({ x: h.tileX, y: h.tileY }), h.meta.allowedDirection as string);
+      }
+      const directionBetween = (from: TilePoint, to: TilePoint): string | null => {
+        if (to.x > from.x) return 'east';
+        if (to.x < from.x) return 'west';
+        if (to.y > from.y) return 'south';
+        if (to.y < from.y) return 'north';
+        return null;
       };
 
-      for (const plate of plates) {
-        const door = doorsById.get(plate.meta.linkedDoorId)!;
-        const doorKey = tileKey({ x: door.tileX, y: door.tileY });
+      // Every door that blocks passage when shut (pressure + locked).
+      const closable = new Set<string>();
+      for (const h of hazards.filter((hz) => hz.type === 'pressure_plate_door' || hz.type === 'locked_door')) {
+        closable.add(tileKey({ x: h.tileX, y: h.tileY }));
+      }
 
-        // #1: door not an articulation point — removing it keeps the maze connected.
-        const visited = new Set<string>([tileKey(maze.entry)]);
-        const queue: TilePoint[] = [maze.entry];
+      const reach = (start: TilePoint, reverse: boolean, blocked: Set<string>): Set<string> => {
+        const visited = new Set<string>([tileKey(start)]);
+        const queue: TilePoint[] = [start];
         while (queue.length > 0) {
           const cur = queue.shift()!;
           for (const step of CARDINAL_STEPS) {
             const n = { x: cur.x + step.x, y: cur.y + step.y };
             const k = tileKey(n);
-            if (k === doorKey || visited.has(k) || !isPassable(n.x, n.y)) continue;
+            if (visited.has(k) || blocked.has(k) || !isPassable(n.x, n.y)) continue;
+            // The forward edge is f -> t; a one-way door constrains the tile
+            // being entered (t) by the direction of travel.
+            const f = reverse ? n : cur;
+            const t = reverse ? cur : n;
+            const dir = oneWayByKey.get(tileKey(t));
+            const allowed = dir ? dir === directionBetween(f, t) : true;
+            if (!allowed) continue;
             visited.add(k);
             queue.push(n);
           }
         }
-        expect(visited.size).toBe(countPassable() - 1);
+        return visited;
+      };
+
+      // Union invariant: from every tile reachable while all doors are open, the
+      // player can still reach both entry and exit using routes that avoid ALL
+      // closable doors at once (worst case: every door shut together).
+      const reachableFromEntry = reach(maze.entry, false, new Set());
+      const reliablyReachesEntry = reach(maze.entry, true, closable);
+      const reliablyReachesExit = reach(maze.exit, true, closable);
+      for (const key of reachableFromEntry) {
+        if (closable.has(key)) continue;
+        expect(reliablyReachesEntry.has(key)).toBe(true);
+        expect(reliablyReachesExit.has(key)).toBe(true);
+      }
+
+      for (const plate of plates) {
+        const door = doorsById.get(plate.meta.linkedDoorId)!;
 
         // #2: plate reaches its door without stepping on a portal tile.
         const target = tileKey({ x: door.tileX, y: door.tileY });

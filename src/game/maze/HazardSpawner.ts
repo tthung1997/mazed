@@ -67,14 +67,20 @@ function directionBetween(from: TilePoint, to: TilePoint): CardinalDirection | n
   return null;
 }
 
-// A move into `to` is blocked only when `to` is a one-way door whose allowed
-// direction does not match the direction of travel.
+// A move into `to` is blocked when `to` is treated as a wall (a closable door
+// assumed shut) or when `to` is a one-way door whose allowed direction does not
+// match the direction of travel.
 function isMoveAllowed(
   maze: MazeInstance,
   from: TilePoint,
   to: TilePoint,
   oneWayByKey: Map<string, CardinalDirection>,
+  blocked: Set<string>,
 ): boolean {
+  if (blocked.has(tileKey(to))) {
+    return false;
+  }
+
   if (!isPassable(maze, to.x, to.y)) {
     return false;
   }
@@ -88,12 +94,14 @@ function isMoveAllowed(
 }
 
 // Directed reachability over the maze graph. When `reverse` is true it walks
-// predecessors, yielding the set of tiles that can *reach* `start`.
+// predecessors, yielding the set of tiles that can *reach* `start`. Tiles in
+// `blocked` are treated as walls.
 function reachableTiles(
   maze: MazeInstance,
   start: TilePoint,
   oneWayByKey: Map<string, CardinalDirection>,
   reverse: boolean,
+  blocked: Set<string>,
 ): Set<string> {
   const visited = new Set<string>([tileKey(start)]);
   const queue: TilePoint[] = [start];
@@ -113,9 +121,16 @@ function reachableTiles(
         continue;
       }
 
+      // Never traverse a blocked (assumed-shut) door tile, in either
+      // direction. `isMoveAllowed` only guards the tile being entered, which is
+      // insufficient for the reverse (predecessor) walk.
+      if (blocked.has(neighborKey)) {
+        continue;
+      }
+
       const allowed = reverse
-        ? isMoveAllowed(maze, neighbor, current, oneWayByKey)
-        : isMoveAllowed(maze, current, neighbor, oneWayByKey);
+        ? isMoveAllowed(maze, neighbor, current, oneWayByKey, blocked)
+        : isMoveAllowed(maze, current, neighbor, oneWayByKey, blocked);
 
       if (!allowed) {
         continue;
@@ -129,16 +144,36 @@ function reachableTiles(
   return visited;
 }
 
-// Guarantees no one-way door can strand the player or block backtracking:
-// every tile still reachable from the entry must retain a directed path back to
-// the entry (for the back portal) and forward to the exit.
-function oneWayLayoutIsEscapable(maze: MazeInstance, oneWayByKey: Map<string, CardinalDirection>): boolean {
-  const reachableFromEntry = reachableTiles(maze, maze.entry, oneWayByKey, false);
-  const canReachEntry = reachableTiles(maze, maze.entry, oneWayByKey, true);
-  const canReachExit = reachableTiles(maze, maze.exit, oneWayByKey, true);
+const NO_BLOCKED_TILES: Set<string> = new Set();
+
+// Guarantees the player can never be stranded, considering all hazards
+// together. `closableDoorTiles` are the tiles of doors that can block passage
+// when shut (pressure-plate + locked doors); one-way doors are modelled by
+// direction. `oneWayByKey` maps one-way door tiles to their allowed direction.
+//
+// A player may stand on any tile reachable while every door is open (that is
+// what `reachableFromEntry` captures, since closable doors can be open). From
+// every such tile the player must still be able to reach both the entry (back
+// portal) and the exit using only *reliable* routes — i.e. routes that do not
+// depend on any closable door. This catches multi-door cut sets, where several
+// doors only strand a region when shut together.
+function layoutIsSafe(
+  maze: MazeInstance,
+  oneWayByKey: Map<string, CardinalDirection>,
+  closableDoorTiles: Set<string>,
+): boolean {
+  const reachableFromEntry = reachableTiles(maze, maze.entry, oneWayByKey, false, NO_BLOCKED_TILES);
+  const reliablyReachesEntry = reachableTiles(maze, maze.entry, oneWayByKey, true, closableDoorTiles);
+  const reliablyReachesExit = reachableTiles(maze, maze.exit, oneWayByKey, true, closableDoorTiles);
 
   for (const key of reachableFromEntry) {
-    if (!canReachEntry.has(key) || !canReachExit.has(key)) {
+    // A door tile itself is safe: the occupant can always step off onto a
+    // neighbouring corridor tile, which is validated in its own right.
+    if (closableDoorTiles.has(key)) {
+      continue;
+    }
+
+    if (!reliablyReachesEntry.has(key) || !reliablyReachesExit.has(key)) {
       return false;
     }
   }
@@ -174,53 +209,6 @@ function isPortalTile(maze: MazeInstance, tile: TilePoint): boolean {
     (tile.x === maze.entry.x && tile.y === maze.entry.y) ||
     (tile.x === maze.exit.x && tile.y === maze.exit.y)
   );
-}
-
-function countPassableTiles(maze: MazeInstance): number {
-  let count = 0;
-
-  for (let y = 0; y < maze.height; y += 1) {
-    for (let x = 0; x < maze.width; x += 1) {
-      if (isPassable(maze, x, y)) {
-        count += 1;
-      }
-    }
-  }
-
-  return count;
-}
-
-// True when the maze stays fully connected after treating `removed` as a wall,
-// i.e. the tile is not an articulation point and can never be the sole route
-// into a region (prevents a closing door from trapping the player).
-function removingTileKeepsMazeConnected(maze: MazeInstance, removed: TilePoint): boolean {
-  const removedKey = tileKey(removed);
-
-  if (tileKey(maze.entry) === removedKey) {
-    return false;
-  }
-
-  const total = countPassableTiles(maze);
-  const visited = new Set<string>([tileKey(maze.entry)]);
-  const queue: TilePoint[] = [maze.entry];
-
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-
-    for (const step of CARDINAL_STEPS) {
-      const neighbor = { x: current.x + step.x, y: current.y + step.y };
-      const neighborKey = tileKey(neighbor);
-
-      if (neighborKey === removedKey || visited.has(neighborKey) || !isPassable(maze, neighbor.x, neighbor.y)) {
-        continue;
-      }
-
-      visited.add(neighborKey);
-      queue.push(neighbor);
-    }
-  }
-
-  return visited.size === total - 1;
 }
 
 // True when `to` is reachable from `from` over passable tiles without stepping
@@ -416,6 +404,9 @@ export class HazardSpawner {
     const pressurePlateCandidates = allCandidates.filter((tile) => getPassableNeighbors(maze, tile).length >= 2);
     const pressureDoorCandidates = allCandidates.filter((tile) => isStraightCorridor(maze, tile) !== null);
     const occupied = new Set<string>();
+    // Tiles of doors that can block passage when shut (pressure + locked). Used
+    // to prove no *combination* of closed doors can strand the player.
+    const closableDoorTiles = new Set<string>();
     const hazards: HazardInstance[] = [];
 
     const oneWayCount = getOneWayCount(maze.mazeNumber, random);
@@ -444,7 +435,7 @@ export class HazardSpawner {
       for (const candidateDirection of [primaryDirection, OPPOSITE_DIRECTION[primaryDirection]]) {
         oneWayByKey.set(key, candidateDirection);
 
-        if (oneWayLayoutIsEscapable(maze, oneWayByKey)) {
+        if (layoutIsSafe(maze, oneWayByKey, closableDoorTiles)) {
           allowedDirection = candidateDirection;
           break;
         }
@@ -497,8 +488,11 @@ export class HazardSpawner {
           return false;
         }
 
-        // #1: a closing door must never be the only way in/out of a region.
-        if (!removingTileKeepsMazeConnected(maze, doorTile)) {
+        // #1: no combination of closed doors may strand the player. Validate
+        // this door together with every door already placed.
+        const candidateBlocked = new Set(closableDoorTiles);
+        candidateBlocked.add(doorKey);
+        if (!layoutIsSafe(maze, oneWayByKey, candidateBlocked)) {
           return false;
         }
 
@@ -520,6 +514,7 @@ export class HazardSpawner {
       const pressureDoorId = `hazard_${maze.mazeNumber}_${hazards.length}`;
 
       occupied.add(tileKey(selectedDoorTile));
+      closableDoorTiles.add(tileKey(selectedDoorTile));
       hazards.push({
         id: pressureDoorId,
         type: 'pressure_plate_door',
@@ -562,7 +557,16 @@ export class HazardSpawner {
         continue;
       }
 
+      // A locked door blocks passage until keyed; validate it together with
+      // every other closable door so no combination can strand the player.
+      const candidateBlocked = new Set(closableDoorTiles);
+      candidateBlocked.add(key);
+      if (!layoutIsSafe(maze, oneWayByKey, candidateBlocked)) {
+        continue;
+      }
+
       occupied.add(key);
+      closableDoorTiles.add(key);
       const passageAxis = getDoorPassageAxis(maze, tile, random);
       hazards.push({
         id: `hazard_${maze.mazeNumber}_${hazards.length}`,

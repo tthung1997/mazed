@@ -239,3 +239,16 @@ Use this block at the end of each future session:
   3. Doors no longer spawn on intersections/corners — all door candidates (one-way, locked, pressure) now use a strict straight-corridor test (exactly two opposite passable neighbors), so a door always has a wall on each flank. Removed the looser `getCorridorAxis`.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Hardened hazard placement against *multi-door* soft-locks — no combination of closable doors (pressure + locked) shut at once can strand the player.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (45/45 passing)
+- Build result: `npm run build` (passing)
+- New completed items:
+  1. Replaced the single-tile connectivity check with a union-aware `layoutIsSafe(maze, oneWayByKey, closableDoorTiles)`: from every tile reachable while all doors are open, the player must still reach BOTH entry and exit via routes that treat every closable door tile as a wall. This catches cut sets that only isolate a region when several doors are shut together.
+  2. Placement now threads a running `closableDoorTiles` set: each pressure/locked door is validated against the union of all doors already committed, so the final layout is provably safe (validation is monotonic — adding a door only removes edges).
+  3. Reverse reachability now explicitly refuses to traverse blocked door tiles, closing a gap where a reliable route could pass through a shut door.
+  4. Removed now-unused `removingTileKeepsMazeConnected` / `countPassableTiles`; added a regression test asserting the union invariant across pressure- and multi-door seeds.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass). No in-game "restart maze" escape hatch yet (UX gap).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
