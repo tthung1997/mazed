@@ -10,6 +10,9 @@ import {
 export class MenuController {
   private readonly startMenu: HTMLDivElement;
   private readonly pauseMenu: HTMLDivElement;
+  private readonly restartButton: HTMLButtonElement;
+  private restartConfirming = false;
+  private restartConfirmTimer = 0;
   private readonly characterSelect: HTMLSelectElement;
   private readonly previewCanvas: HTMLCanvasElement;
   private readonly previewScene: THREE.Scene;
@@ -36,6 +39,7 @@ export class MenuController {
       onOpenLoad: () => void;
       onCharacterChange: (characterId: PlayerCharacterId) => void;
       onResume: () => void;
+      onRestart: () => void;
       onSave: () => void;
       onQuit: () => void;
     },
@@ -60,6 +64,7 @@ export class MenuController {
     this.pauseMenu.innerHTML = `
       <h2>Paused</h2>
       <div class="row"><button data-action="resume">Resume</button></div>
+      <div class="row"><button data-action="restart">Restart Maze</button></div>
       <div class="row"><button data-action="save">Save / Load</button></div>
       <div class="row"><button data-action="quit">Quit To Menu</button></div>
     `;
@@ -129,6 +134,20 @@ export class MenuController {
       this.previewCanvas.releasePointerCapture(event.pointerId);
     });
     this.pauseMenu.querySelector('[data-action="resume"]')?.addEventListener('click', callbacks.onResume);
+    this.restartButton = this.pauseMenu.querySelector('[data-action="restart"]') as HTMLButtonElement;
+    this.restartButton.addEventListener('click', () => {
+      if (!this.restartConfirming) {
+        this.restartConfirming = true;
+        this.restartButton.textContent = 'Confirm Restart?';
+        this.restartButton.classList.add('confirming');
+        window.clearTimeout(this.restartConfirmTimer);
+        this.restartConfirmTimer = window.setTimeout(() => this.resetRestartButton(), 3000);
+        return;
+      }
+
+      this.resetRestartButton();
+      callbacks.onRestart();
+    });
     this.pauseMenu.querySelector('[data-action="save"]')?.addEventListener('click', callbacks.onSave);
     this.pauseMenu.querySelector('[data-action="quit"]')?.addEventListener('click', callbacks.onQuit);
 
@@ -160,6 +179,15 @@ export class MenuController {
 
   setPauseVisible(visible: boolean): void {
     this.pauseMenu.classList.toggle('hidden', !visible);
+    this.resetRestartButton();
+  }
+
+  private resetRestartButton(): void {
+    window.clearTimeout(this.restartConfirmTimer);
+    this.restartConfirmTimer = 0;
+    this.restartConfirming = false;
+    this.restartButton.textContent = 'Restart Maze';
+    this.restartButton.classList.remove('confirming');
   }
 
   getSelectedCharacterId(): PlayerCharacterId {

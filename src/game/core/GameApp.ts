@@ -148,6 +148,7 @@ export class GameApp {
       onOpenLoad: () => this.openSaveModal(),
       onCharacterChange: (characterId) => this.applyPlayerCharacter(characterId),
       onResume: () => this.resumeGame(),
+      onRestart: () => this.restartMaze(),
       onSave: () => this.openSaveModal(),
       onQuit: () => this.quitToMenu(),
     });
@@ -492,6 +493,26 @@ export class GameApp {
       this.state.runStatus = 'playing';
       this.menus.setPauseVisible(false);
     }
+  }
+
+  // Escape hatch: return the player to the current maze's entrance without
+  // touching progression. Rebuilding the (cached, deterministic) maze also
+  // resets hazard runtime state (doors reopen/reclose to defaults) while
+  // preserving explored fog and picked-up items. Entry is always reachable
+  // from the exit and vice-versa, so this can never leave the player trapped.
+  private restartMaze(): void {
+    if (this.state.runStatus !== 'paused' && this.state.runStatus !== 'playing') {
+      return;
+    }
+
+    if (!this.state.maze) {
+      return;
+    }
+
+    this.nextMazeSpawnPoint = 'entry';
+    this.buildMaze();
+    this.state.runStatus = 'playing';
+    this.menus.setPauseVisible(false);
   }
 
   private quitToMenu(): void {

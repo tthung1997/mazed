@@ -49,7 +49,6 @@ Phase 2 is **partially complete**.
 
 ### 3.1 Gameplay Gaps
 - [ ] Pressure plate depression animation polish (active/inactive Y-lerp)
-
 ### 3.2 Tools/UX Gaps
 - [ ] Full 5-tool runtime flow finalized (unlock/use path for all tools)
 - [ ] Compass gameplay-facing overlay
@@ -219,3 +218,49 @@ Use this block at the end of each future session:
 - New completed items: Locked and pressure-plate doors share the same axis metadata but now use the model-correct yaw mapping again.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-07-12
+- Scope: Fixed a one-way door soft-lock and hardened the placement invariant to also protect backtracking.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (43/43 passing)
+- Build result: `npm run build` (passing)
+- New completed items: One-way door placement now runs a directed-escapability check requiring every entry-reachable tile to retain a path to BOTH the entry (back portal / backtracking) and the exit; a door orientation is only committed if it keeps the maze escapable, otherwise the tile is skipped. This confines one-way doors to loop structures (no traps, no walled-off regions). Regression test asserts reach-to-entry and reach-to-exit across multiple seeds/maze numbers.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-07-12
+- Scope: Fixed three hazard placement bugs surfaced during pressure-plate playtesting.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (45/45 passing)
+- Build result: `npm run build` (passing)
+- New completed items:
+  1. Pressure-plate doors can no longer soft-lock the player — a door is only placed when removing it keeps the maze fully connected (door sits on a loop, never the sole route into a region).
+  2. Pressure-plate puzzles no longer route through a portal — the plate must reach its linked door via a path that avoids entry/exit tiles.
+  3. Doors no longer spawn on intersections/corners — all door candidates (one-way, locked, pressure) now use a strict straight-corridor test (exactly two opposite passable neighbors), so a door always has a wall on each flank. Removed the looser `getCorridorAxis`.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Hardened hazard placement against *multi-door* soft-locks — no combination of closable doors (pressure + locked) shut at once can strand the player.
+- Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
+- Tests run: `npm run test` (45/45 passing)
+- Build result: `npm run build` (passing)
+- New completed items:
+  1. Replaced the single-tile connectivity check with a union-aware `layoutIsSafe(maze, oneWayByKey, closableDoorTiles)`: from every tile reachable while all doors are open, the player must still reach BOTH entry and exit via routes that treat every closable door tile as a wall. This catches cut sets that only isolate a region when several doors are shut together.
+  2. Placement now threads a running `closableDoorTiles` set: each pressure/locked door is validated against the union of all doors already committed, so the final layout is provably safe (validation is monotonic — adding a door only removes edges).
+  3. Reverse reachability now explicitly refuses to traverse blocked door tiles, closing a gap where a reliable route could pass through a shut door.
+  4. Removed now-unused `removingTileKeepsMazeConnected` / `countPassableTiles`; added a regression test asserting the union invariant across pressure- and multi-door seeds.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass). No in-game "restart maze" escape hatch yet (UX gap).
+- Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Added a "Restart Maze" escape hatch to the pause menu so a player can always return to the current maze entrance.
+- Files changed: `src/game/ui/MenuController.ts`, `src/game/core/GameApp.ts`, `src/style.css`
+- Tests run: `npm run test` (45/45 passing)
+- Build result: `npm run build` (passing); verified in-browser (pause → Restart Maze → inline confirm → resumes at entrance).
+- New completed items:
+  1. Pause menu now has a "Restart Maze" button between Resume and Save/Load, guarded by an inline confirm (button becomes "Confirm Restart?" for 3s; a second click within the window fires it). Confirm state auto-resets whenever the pause menu is shown/hidden.
+  2. `GameApp.restartMaze()` sets the spawn point to the entrance and re-runs `buildMaze()`, which reuses the cached deterministic maze and resets hazard runtime state (doors back to defaults) while preserving explored fog and picked-up items. Progression (seed, completed mazes, tools, inventory) is untouched.
+  3. Because entry↔exit reachability is guaranteed by the union-aware door check, restarting at the entrance can never re-trap the player.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Pressure plate depression animation (deprioritized — low value) OR pick the next polish item (audio/particles/minimap).
