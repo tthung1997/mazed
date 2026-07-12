@@ -252,3 +252,15 @@ Use this block at the end of each future session:
   4. Removed now-unused `removingTileKeepsMazeConnected` / `countPassableTiles`; added a regression test asserting the union invariant across pressure- and multi-door seeds.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass). No in-game "restart maze" escape hatch yet (UX gap).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
+
+### Session Update — 2026-02-22
+- Scope: Added a "Restart Maze" escape hatch to the pause menu so a player can always return to the current maze entrance.
+- Files changed: `src/game/ui/MenuController.ts`, `src/game/core/GameApp.ts`, `src/style.css`
+- Tests run: `npm run test` (45/45 passing)
+- Build result: `npm run build` (passing); verified in-browser (pause → Restart Maze → inline confirm → resumes at entrance).
+- New completed items:
+  1. Pause menu now has a "Restart Maze" button between Resume and Save/Load, guarded by an inline confirm (button becomes "Confirm Restart?" for 3s; a second click within the window fires it). Confirm state auto-resets whenever the pause menu is shown/hidden.
+  2. `GameApp.restartMaze()` sets the spawn point to the entrance and re-runs `buildMaze()`, which reuses the cached deterministic maze and resets hazard runtime state (doors back to defaults) while preserving explored fog and picked-up items. Progression (seed, completed mazes, tools, inventory) is untouched.
+  3. Because entry↔exit reachability is guaranteed by the union-aware door check, restarting at the entrance can never re-trap the player.
+- Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
+- Next single step: Pressure plate depression animation (deprioritized — low value) OR pick the next polish item (audio/particles/minimap).

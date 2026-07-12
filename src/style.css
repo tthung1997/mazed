@@ -94,6 +94,12 @@ body,
   text-align-last: center;
 }
 
+.panel button.confirming {
+  border-color: rgba(248, 113, 113, 0.9);
+  background: rgba(248, 113, 113, 0.25);
+  color: #fecaca;
+}
+
 .panel textarea {
   min-height: 84px;
   resize: vertical;
