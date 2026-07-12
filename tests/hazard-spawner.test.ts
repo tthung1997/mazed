@@ -199,7 +199,7 @@ describe('HazardSpawner', () => {
     }
   });
 
-  it('never places a one-way door that can strand the player away from the exit', () => {
+  it('never places a one-way door that can strand the player from the entry or exit', () => {
     const generator = new MazeGenerator();
     const spawner = new HazardSpawner();
 
@@ -257,9 +257,11 @@ describe('HazardSpawner', () => {
       };
 
       const reachableFromEntry = reach(maze.entry, false);
+      const canReachEntry = reach(maze.entry, true);
       const canReachExit = reach(maze.exit, true);
 
       for (const key of reachableFromEntry) {
+        expect(canReachEntry.has(key)).toBe(true);
         expect(canReachExit.has(key)).toBe(true);
       }
     }

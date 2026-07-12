@@ -129,14 +129,16 @@ function reachableTiles(
   return visited;
 }
 
-// Guarantees no one-way door can strand the player: every tile still reachable
-// from the entry must retain a directed path to the exit.
+// Guarantees no one-way door can strand the player or block backtracking:
+// every tile still reachable from the entry must retain a directed path back to
+// the entry (for the back portal) and forward to the exit.
 function oneWayLayoutIsEscapable(maze: MazeInstance, oneWayByKey: Map<string, CardinalDirection>): boolean {
   const reachableFromEntry = reachableTiles(maze, maze.entry, oneWayByKey, false);
+  const canReachEntry = reachableTiles(maze, maze.entry, oneWayByKey, true);
   const canReachExit = reachableTiles(maze, maze.exit, oneWayByKey, true);
 
   for (const key of reachableFromEntry) {
-    if (!canReachExit.has(key)) {
+    if (!canReachEntry.has(key) || !canReachExit.has(key)) {
       return false;
     }
   }

@@ -220,10 +220,10 @@ Use this block at the end of each future session:
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
 
 ### Session Update — 2026-07-12
-- Scope: Fixed a one-way door soft-lock — doors could funnel the player into a dead-end region with no path back or to the exit.
+- Scope: Fixed a one-way door soft-lock and hardened the placement invariant to also protect backtracking.
 - Files changed: `src/game/maze/HazardSpawner.ts`, `tests/hazard-spawner.test.ts`
 - Tests run: `npm run test` (43/43 passing)
 - Build result: `npm run build` (passing)
-- New completed items: One-way door placement now runs a directed-escapability check (every entry-reachable tile must retain a path to the exit); a door orientation is only committed if it keeps the maze escapable, otherwise the tile is skipped. Added regression test across multiple seeds/maze numbers.
+- New completed items: One-way door placement now runs a directed-escapability check requiring every entry-reachable tile to retain a path to BOTH the entry (back portal / backtracking) and the exit; a door orientation is only committed if it keeps the maze escapable, otherwise the tile is skipped. This confines one-way doors to loop structures (no traps, no walled-off regions). Regression test asserts reach-to-entry and reach-to-exit across multiple seeds/maze numbers.
 - Remaining blockers: Phase 2 polish systems remain (audio, particles, minimap/inventory UX, and full tool UX completeness pass).
 - Next single step: Implement pressure plate depression animation (plate mesh Y-offset lerp) tied to active state.
